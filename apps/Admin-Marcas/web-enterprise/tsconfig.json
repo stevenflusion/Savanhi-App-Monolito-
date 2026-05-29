@@ -1,0 +1,12 @@
+{
+  "extends": "../../../packages/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}
