@@ -1,8 +1,12 @@
 export default function DocsHomePage() {
   return (
-    <main style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <h1>Tenderos Docs</h1>
-      <p>Base de documentación inicial en construcción.</p>
+    <main className="min-h-screen bg-slate-50 px-8 py-10 text-slate-800">
+      <div className="mx-auto max-w-4xl rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h1 className="text-3xl font-bold tracking-tight">Tenderos Docs</h1>
+        <p className="mt-3 text-slate-600">
+          Base de documentacion inicial en construccion.
+        </p>
+      </div>
     </main>
   );
 }

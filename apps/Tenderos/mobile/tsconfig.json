@@ -1,0 +1,13 @@
+{
+  "extends": "../../../packages/typescript-config/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "nativewind-env.d.ts",
+    "expo-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts"
+  ]
+}

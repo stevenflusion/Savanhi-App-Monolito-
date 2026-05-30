@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Tenderos Mobile",
+    "slug": "tenderos-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "tenderosmobile",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

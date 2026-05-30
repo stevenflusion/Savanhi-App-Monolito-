@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Tenderos Docs",
-  description: "Documentación funcional y técnica de Tenderos",
+  description: "Documentacion funcional y tecnica de Tenderos",
 };
 
 type RootLayoutProps = {
