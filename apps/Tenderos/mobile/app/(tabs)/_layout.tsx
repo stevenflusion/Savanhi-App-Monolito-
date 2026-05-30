@@ -1,0 +1,60 @@
+import { Redirect, Tabs } from "expo-router";
+import {
+  createTabBarButton,
+  useNavBarScreenOptions,
+  renderNavIcon,
+} from "../components/NavBar";
+import { useAuth } from "../components/AuthProvider";
+
+type TabButtonArg = {
+  accessibilityState?: {
+    selected?: boolean;
+  };
+};
+
+export default function TabsLayout() {
+  const { isLoggedIn } = useAuth();
+  const navBarScreenOptions = useNavBarScreenOptions();
+  if (!isLoggedIn) return <Redirect href="/auth/login" />;
+
+  return (
+    <Tabs initialRouteName="index" screenOptions={navBarScreenOptions}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Inicio",
+          tabBarIcon: ({ color }: { color: string; size: number }) =>
+            renderNavIcon("HOME", color),
+          tabBarButton: (props: TabButtonArg) =>
+            createTabBarButton(props.accessibilityState?.selected === true)(
+              props
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: "Productos",
+          tabBarIcon: ({ color }: { color: string; size: number }) =>
+            renderNavIcon("ORD", color),
+          tabBarButton: (props: TabButtonArg) =>
+            createTabBarButton(props.accessibilityState?.selected === true)(
+              props
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Perfil",
+          tabBarIcon: ({ color }: { color: string; size: number }) =>
+            renderNavIcon("PER", color),
+          tabBarButton: (props: TabButtonArg) =>
+            createTabBarButton(props.accessibilityState?.selected === true)(
+              props
+            ),
+        }}
+      />
+    </Tabs>
+  );
+}
