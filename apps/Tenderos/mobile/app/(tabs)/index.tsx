@@ -2,11 +2,11 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Animated, SafeAreaView, ScrollView, Text, View } from "react-native";
-import { AlertsCard } from "../components/AlertsCard";
-import { DashboardStatCard } from "../components/DashboardStatCard";
-import { MobileTopBar } from "../components/MobileTopBar";
-import { QuickActionsCard } from "../components/QuickActionsCard";
-import { TopProductsCard } from "../components/TopProductsCard";
+import { AlertsCard } from "@/src/components/AlertsCard";
+import { DashboardStatCard } from "@/src/components/DashboardStatCard";
+import { MobileTopBar } from "@/src/components/MobileTopBar";
+import { QuickActionsCard } from "@/src/components/QuickActionsCard";
+import { TopProductsCard } from "@/src/components/TopProductsCard";
 
 const topProducts = [
   { id: "1", name: "Arroz 1kg", sold: 42 },

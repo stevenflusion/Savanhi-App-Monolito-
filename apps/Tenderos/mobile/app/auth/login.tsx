@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, SafeAreaView, Text, TextInput, View } from "react-native";
 import { Link, Redirect, useRouter } from "expo-router";
-import { useAuth } from "../components/AuthProvider";
+import { useAuth } from "@/src/components/AuthProvider";
 
 export default function LoginScreen() {
   const { isLoggedIn, login } = useAuth();
