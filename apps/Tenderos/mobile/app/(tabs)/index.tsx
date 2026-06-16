@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Animated, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Animated, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertsCard } from "@/src/components/AlertsCard";
 import { DashboardStatCard } from "@/src/components/DashboardStatCard";
 import { MobileTopBar } from "@/src/components/MobileTopBar";

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, SafeAreaView, Text, TextInput, View } from "react-native";
+import { Animated, Pressable, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 

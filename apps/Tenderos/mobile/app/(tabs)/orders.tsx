@@ -1,4 +1,4 @@
-import { SafeAreaView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileTopBar } from "@/src/components/MobileTopBar";
 import { ProductsWorkspace } from "@/src/components/ProductsWorkspace";
 
