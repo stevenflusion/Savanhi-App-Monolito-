@@ -1,88 +1,129 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, TextInput, View } from "react-native";
+import {
+  Animated,
+  Keyboard,
+  Platform,
+  Pressable,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, Redirect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
+
+import EmailStep from "@/src/components/auth/EmailStep";
+import PasswordStep from "@/src/components/auth/PasswordStep";
+import ConfirmPasswordStep from "@/src/components/auth/ConfirmPasswordStep";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function LoginScreen() {
   const { isLoggedIn, login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("demo@tenderos.app");
-  const [password, setPassword] = useState("123456");
-  const [error, setError] = useState("");
 
-  const fade = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(10)).current;
+  const [step, setStep] = useState(0);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // ── Keyboard height tracking ──
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  // ── Step transition animation ──
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const direction = useRef(1); // 1 = forward, -1 = backward
+
+  const goToStep = (next: number) => {
+    direction.current = next > step ? 1 : -1;
+    fadeAnim.setValue(0);
+    slideAnim.setValue(direction.current * 40);
+    setStep(next);
     Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: true }),
-      Animated.timing(slide, { toValue: 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [fade, slide]);
+  };
 
   if (isLoggedIn) return <Redirect href={"/(tabs)" as never} />;
 
+  const handleBack = () => {
+    if (step === 0) {
+      router.push("/auth/welcome");
+    } else {
+      goToStep(step - 1);
+    }
+  };
+
   const handleLogin = () => {
     const ok = login(email, password);
-    if (!ok) {
-      setError("Credenciales incorrectas. Revisa correo y clave.");
-      return;
-    }
-    setError("");
+    if (!ok) return;
     router.replace("/(tabs)" as never);
   };
 
+  const stepContent =
+    step === 0 ? (
+      <EmailStep email={email} onChange={setEmail} onNext={() => goToStep(1)} />
+    ) : step === 1 ? (
+      <PasswordStep
+        password={password}
+        onChange={setPassword}
+        onNext={() => goToStep(2)}
+      />
+    ) : (
+      <ConfirmPasswordStep
+        password={password}
+        confirmPassword={confirmPassword}
+        onChange={setConfirmPassword}
+        onConfirm={handleLogin}
+        onBackToPassword={() => goToStep(1)}
+      />
+    );
+
   return (
-    <SafeAreaView className="flex-1 bg-slate-950 px-5">
-      <Animated.View
-        style={{ opacity: fade, transform: [{ translateY: slide }] }}
-        className="flex-1 justify-center"
-      >
-        <View className="rounded-2xl bg-slate-900 p-5">
-          <Text className="text-2xl font-semibold text-white">Iniciar sesion</Text>
-          <Text className="mt-2 text-slate-300">
-            Gestiona productos, inventario y stock desde tu tienda.
-          </Text>
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1">
+        {/* ── Back button ── */}
+        <Pressable
+          onPress={handleBack}
+          className="absolute left-6 top-14 z-10 items-center justify-center active:bg-gray-100"
+        >
+          <MaterialIcons name="arrow-back" color="#787f8f" size={26} />
+        </Pressable>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Correo"
-            placeholderTextColor="#64748b"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            className="mt-5 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
-          />
-
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Clave"
-            placeholderTextColor="#64748b"
-            secureTextEntry
-            className="mt-3 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
-          />
-
-          {error ? <Text className="mt-3 text-sm text-red-400">{error}</Text> : null}
-
-          <Pressable
-            onPress={handleLogin}
-            className="mt-5 min-h-[44px] items-center justify-center rounded-xl bg-green-500"
-          >
-            <Text className="text-base font-semibold text-slate-950">Entrar</Text>
-          </Pressable>
-
-          <View className="mt-4 flex-row items-center justify-center gap-1">
-            <Text className="text-slate-300">No tienes cuenta?</Text>
-            <Link href="/auth/register" asChild>
-              <Pressable>
-                <Text className="font-semibold text-green-400">Registrate</Text>
-              </Pressable>
-            </Link>
-          </View>
-        </View>
-      </Animated.View>
+        {/* ── Animated step content ── */}
+        <Animated.View
+          style={{
+            flex: 1,
+            opacity: fadeAnim,
+            transform: [{ translateX: slideAnim }],
+            paddingBottom: keyboardHeight,
+          }}
+        >
+          {stepContent}
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }

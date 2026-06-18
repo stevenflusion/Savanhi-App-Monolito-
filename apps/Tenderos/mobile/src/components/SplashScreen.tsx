@@ -1,40 +1,39 @@
 import { View, StyleSheet } from "react-native"
 import LottieView from "lottie-react-native"
 import { useCallback, useRef } from "react"
-import * as ExpoSplashScreen from "expo-splash-screen"
-
-ExpoSplashScreen.preventAutoHideAsync()
 
 type SplashScreenProps = {
-  onReady: () => void
+  onAnimationFinish: () => void
 }
 
-export default function SplashScreen({ onReady }: SplashScreenProps) {
+function SplashScreen({ onAnimationFinish }: SplashScreenProps) {
   const animationRef = useRef<LottieView>(null)
   const hasFinished = useRef(false)
 
-  const handleAnimationFinish = useCallback(() => {
-    if (hasFinished.current) return
-    hasFinished.current = true
-    ExpoSplashScreen.hide()
-    onReady()
-  }, [onReady])
-
-  const handleLayout = useCallback(() => {
-    animationRef.current?.play()
-  }, [])
+  const handleFinish = useCallback(
+    (isCancelled: boolean) => {
+      // Only count non-cancelled completions as "finished"
+      if (isCancelled) return
+      if (hasFinished.current) return
+      hasFinished.current = true
+      onAnimationFinish()
+    },
+    [onAnimationFinish],
+  )
 
   return (
-    <View style={styles.container} onLayout={handleLayout}>
-      <LottieView
-        ref={animationRef}
-        source={require("@/assets/lotties/LottieSplashScreen.json")}
-        autoPlay
-        loop={false}
-        resizeMode="cover"
-        onAnimationFinish={handleAnimationFinish}
-        style={styles.animation}
-      />
+    <View style={styles.container}>
+      <View style={styles.lottieWrapper}>
+        <LottieView
+          ref={animationRef}
+          source={require("../../assets/lotties/LottieSplashScreen.json")}
+          autoPlay
+          loop={false}
+          resizeMode="cover"
+          onAnimationFinish={handleFinish}
+          style={styles.animation}
+        />
+      </View>
     </View>
   )
 }
@@ -46,8 +45,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#ffffff",
   },
+  lottieWrapper: {
+    width: 280,
+    height: 280,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
   animation: {
-    flex: 1,
     width: "100%",
+    height: "100%",
   },
 })
+
+export default SplashScreen

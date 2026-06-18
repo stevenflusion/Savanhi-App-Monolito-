@@ -1,0 +1,59 @@
+# openspec/config.yaml
+schema: spec-driven
+
+testing:
+  strict_tdd: false
+  detected_at: "2026-06-17"
+  runner:
+    framework: null
+    command: ""
+  coverage:
+    available: false
+    command: ""
+  layers:
+    unit: { available: false, tool: null }
+    integration: { available: false, tool: null }
+    e2e: { available: false, tool: null }
+  quality:
+    linter: { available: false, command: "" }
+    type_checker: { available: true, command: "npx tsc --noEmit" }
+    formatter: { available: false, command: "" }
+
+context: |
+  Tech stack: Expo SDK 54, React Native 0.81.5, React 19.1.0, TypeScript 5.9.2
+  Architecture: Expo Router v6 file-based routing — app/ directory with Stack navigator,
+    tab layout (tabs/), auth screens. Path alias @/* -> ./*.
+  Styling: NativeWind v4 (Tailwind CSS via react-native-css-interop), shared preset
+    from @repo/tailwind-config/native. Global CSS entry: global.css.
+  Monorepo: part of Savanhi-App-Monolito- monorepo; tsconfig extends base from
+    packages/typescript-config/.
+  Animations: Lottie (splash), Reanimated 4.1.7 for runtime animations.
+  State: React context-based AuthProvider wrapping root layout.
+  Components: 19 UI components in src/components/, organized flat.
+
+rules:
+  proposal:
+    - Include migration path when adding new dependencies
+    - Consider monorepo workspace boundaries
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Consider Expo Router navigation patterns
+  tasks:
+    - Group by layer (navigation, UI, state, API)
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns (NativeWind classes, flat component structure)
+    - Use path alias @/ for local imports
+    - Target screens in app/, components in src/components/
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: "npx expo export --platform web"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas

@@ -1,0 +1,65 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Monorepo (pnpm + Turborepo) housing Tenderos mobile app.
+  Focus: apps/Tenderos/mobile — Expo SDK 54, React Native 0.81.5, NativeWind v4, TypeScript 5.9.
+  Other apps: Tenderos/web (Next.js 14), Tenderos/docs (Next.js 14), Web/backend (Express.js), Web/web-enterprise (Next.js 14).
+  Shared packages: ui, tailwind-config, typescript-config, eslint-config (ESLint v9).
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: "pnpm --filter tenderos-mobile run dev"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+testing:
+  strict_tdd: false
+  reason: "No test runner detected in any workspace. Install a test runner (Vitest recommended) and configure before enabling strict TDD."
+  detected: "2026-06-17"
+  runner:
+    command: ""
+    framework: ""
+  layers:
+    unit:
+      available: false
+      tool: ""
+    integration:
+      available: false
+      tool: ""
+    e2e:
+      available: false
+      tool: ""
+  coverage:
+    available: false
+    command: ""
+  quality:
+    linter:
+      available: true
+      command: "pnpm turbo run lint"
+      tool: "ESLint v9"
+    type_checker:
+      available: true
+      command: "pnpm turbo run check-types"
+      tool: "TypeScript 5.9 (tsc --noEmit)"
+    formatter:
+      available: true
+      command: "pnpm format (prettier --write)"
+      tool: "Prettier v3"
