@@ -5,6 +5,7 @@ import {
   renderNavIcon,
 } from "@/src/components/NavBar";
 import { useAuth } from "@/src/components/AuthProvider";
+import LoadingScreen from "@/src/components/LoadingScreen";
 
 type TabButtonArg = {
   accessibilityState?: {
@@ -13,9 +14,11 @@ type TabButtonArg = {
 };
 
 export default function TabsLayout() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
   const navBarScreenOptions = useNavBarScreenOptions();
-  if (!isLoggedIn) return <Redirect href="/auth/login" />;
+
+  if (isLoading) return <LoadingScreen />;
+  if (!isLoggedIn) return <Redirect href="/auth/welcome" />;
 
   return (
     <Tabs initialRouteName="index" screenOptions={navBarScreenOptions}>

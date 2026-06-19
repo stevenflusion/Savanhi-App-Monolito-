@@ -18,9 +18,7 @@ export default function EmailStep({ email, onChange, onNext }: Props) {
       {/* back button is handled by login.tsx */}
 
       <View className="flex-1 px-6 pt-28">
-        <Text
-          className="pr-24 text-3xl font-medium text-[#25262a]"
-        >
+        <Text className="pr-24 text-3xl font-medium text-[#25262a]">
           ¿Cuál es tu dirección de correo electrónico?
         </Text>
 

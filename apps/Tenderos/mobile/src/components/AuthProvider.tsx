@@ -1,81 +1,136 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 
 type User = {
-  name: string;
-  email: string;
-};
+  name: string
+  email: string
+  storeName?: string
+  address?: string
+  latitude?: number
+  longitude?: number
+}
 
 type AuthContextType = {
-  isLoggedIn: boolean;
-  user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
-  logout: () => void;
-};
+  user: User | null
+  isLoading: boolean
+  isLoggedIn: boolean
+  requestOTP: (email: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  verifyOTP: (
+    email: string,
+    code: string,
+  ) => Promise<{
+    success: boolean
+    isNewUser?: boolean
+    error?: string
+  }>
+  completeProfile: (data: {
+    name: string
+    storeName: string
+  }) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  saveLocation: (data: {
+    address: string
+    latitude: number
+    longitude: number
+  }) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  logout: () => void
+}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-type AuthProviderProps = {
-  children: ReactNode;
-};
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const DEMO_USER = {
-  name: "Tendero Demo",
-  email: "demo@tenderos.app",
-  password: "123456",
-};
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [credentialStore, setCredentialStore] = useState(DEMO_USER);
+  // Simulate session check on mount
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true)
+      await delay(1500)
+      // Mock: no persisted session
+      setUser(null)
+      setIsLoading(false)
+    }
+    init()
+  }, [])
 
-  const login = (email: string, password: string) => {
-    const isValid =
-      email.trim().toLowerCase() === credentialStore.email.toLowerCase() &&
-      password === credentialStore.password;
+  const requestOTP = async (_email: string) => {
+    await delay(1500)
+    return { success: true }
+  }
 
-    if (!isValid) return false;
+  const verifyOTP = async (email: string, code: string) => {
+    await delay(1500)
+    if (code === "123456") {
+      setUser({
+        name: email === "demo@test.com" ? "Demo" : "",
+        email,
+      })
+      return { success: true, isNewUser: email !== "demo@test.com" }
+    }
+    return { success: false, error: "Código incorrecto" }
+  }
 
-    setUser({ name: credentialStore.name, email: credentialStore.email });
-    return true;
-  };
+  const completeProfile = async (data: {
+    name: string
+    storeName: string
+  }) => {
+    await delay(1000)
+    setUser((prev) => (prev ? { ...prev, ...data } : null))
+    return { success: true }
+  }
 
-  const register = (name: string, email: string, password: string) => {
-    const cleanName = name.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
+  const saveLocation = async (data: {
+    address: string
+    latitude: number
+    longitude: number
+  }) => {
+    await delay(800)
+    setUser((prev) => (prev ? { ...prev, ...data } : null))
+    return { success: true }
+  }
 
-    if (!cleanName || !cleanEmail || cleanPassword.length < 6) return false;
-
-    setCredentialStore({
-      name: cleanName,
-      email: cleanEmail,
-      password: cleanPassword,
-    });
-    setUser({ name: cleanName, email: cleanEmail });
-    return true;
-  };
-
-  const logout = () => setUser(null);
+  const logout = () => {
+    setUser(null)
+  }
 
   const value = useMemo(
     () => ({
-      isLoggedIn: user !== null,
       user,
-      login,
-      register,
+      isLoading,
+      isLoggedIn: user !== null,
+      requestOTP,
+      verifyOTP,
+      completeProfile,
+      saveLocation,
       logout,
     }),
-    [user]
-  );
+    [user, isLoading],
+  )
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
+  const ctx = useContext(AuthContext)
   if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error("useAuth must be used within AuthProvider")
   }
-  return ctx;
+  return ctx
 }
