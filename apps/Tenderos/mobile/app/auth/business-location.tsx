@@ -187,7 +187,7 @@ export default function BusinessLocationScreen() {
     })
     setLoading(false)
     if (result.success) {
-      router.push("/auth/account-created" as any)
+      router.push("/auth/store-photos" as any)
     }
   }
 
