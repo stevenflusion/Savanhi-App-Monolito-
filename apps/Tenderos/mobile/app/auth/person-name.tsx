@@ -53,6 +53,7 @@ export default function PersonNameScreen() {
     setLoading(true);
     setError("");
     const result = await saveProfile({ name, storeName: user?.storeName || "" });
+
     if (result.success) {
       router.push("/auth/store-name" as any);
       setTimeout(() => setLoading(false), 400);

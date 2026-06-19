@@ -52,7 +52,7 @@ export default function StoreNameScreen() {
     Keyboard.dismiss();
     setLoading(true);
     setError("");
-    const result = await saveProfile({ name: user?.name || "", storeName });
+    const result = await saveProfile({ name: user?.fullName || "", storeName });
     if (result.success) {
       router.push("/auth/identity-card" as any);
       setTimeout(() => setLoading(false), 400);

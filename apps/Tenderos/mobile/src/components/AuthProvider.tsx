@@ -140,7 +140,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const saveProfile = async (data: { name: string; storeName: string }) => {
     await delay(1000);
-    setUser((prev) => (prev ? { ...prev, ...data } : null));
+    setUser((prev) =>
+      prev ? { ...prev, fullName: data.name, storeName: data.storeName } : null,
+    );
     return { success: true };
   };
 
@@ -195,9 +197,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return { success: true };
   };
 
-  const verifyOTP = async (_email: string, code: string) => {
+  const verifyOTP = async (email: string, code: string) => {
     await delay(1500);
     if (code === "123456") {
+      // Set the user with the email so the profile screens can work
+      setUser({
+        id: `mock-${Date.now()}`,
+        fullName: "",
+        email,
+        role: "tendero",
+        active: true,
+        storeName: "",
+      });
       return { success: true, isNewUser: true };
     }
     return { success: false, error: "Código incorrecto" };
