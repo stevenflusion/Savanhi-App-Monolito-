@@ -1,72 +1,140 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import * as SecureStore from "expo-secure-store";
+import type { AuthSession, AuthUser } from "@repo/api-contracts";
 
-type User = {
-  name: string;
-  email: string;
+type User = AuthUser;
+type Session = Pick<AuthSession, "accessToken" | "refreshToken">;
+
+type StoredSession = {
+  user: User;
+  session: Session;
 };
 
 type AuthContextType = {
   isLoggedIn: boolean;
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
-  logout: () => void;
+  isReady: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const STORAGE_KEY = "savanhi-mobile-session";
+const API_BASE_URL = process.env.EXPO_PUBLIC_TENDEROS_API_URL ?? "http://localhost:4300";
+
+async function parseJson(response: Response) {
+  return response.json().catch(() => {
+    throw new Error("Respuesta invalida del backend.");
+  });
+}
+
+async function persistSession(value: StoredSession | null) {
+  if (value) {
+    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(value));
+  } else {
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
+  }
+}
+
+async function loadSession(): Promise<StoredSession | null> {
+  const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredSession;
+  } catch {
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    return null;
+  }
+}
 
 type AuthProviderProps = {
   children: ReactNode;
 };
 
-const DEMO_USER = {
-  name: "Tendero Demo",
-  email: "demo@tenderos.app",
-  password: "123456",
-};
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [credentialStore, setCredentialStore] = useState(DEMO_USER);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  const login = (email: string, password: string) => {
-    const isValid =
-      email.trim().toLowerCase() === credentialStore.email.toLowerCase() &&
-      password === credentialStore.password;
+  useEffect(() => {
+    loadSession()
+      .then((stored) => {
+        if (!stored) return;
+        setUser(stored.user);
+        setSession(stored.session);
+      })
+      .finally(() => setIsReady(true));
+  }, []);
 
-    if (!isValid) return false;
-
-    setUser({ name: credentialStore.name, email: credentialStore.email });
-    return true;
-  };
-
-  const register = (name: string, email: string, password: string) => {
-    const cleanName = name.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    if (!cleanName || !cleanEmail || cleanPassword.length < 6) return false;
-
-    setCredentialStore({
-      name: cleanName,
-      email: cleanEmail,
-      password: cleanPassword,
+  const login = async (email: string, password: string) => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
     });
-    setUser({ name: cleanName, email: cleanEmail });
+
+    const data = await parseJson(response);
+    if (!response.ok) return false;
+
+    const nextUser: User = data.user;
+    const nextSession: Session = {
+      accessToken: data.session.accessToken,
+      refreshToken: data.session.refreshToken,
+    };
+
+    setUser(nextUser);
+    setSession(nextSession);
+    await persistSession({ user: nextUser, session: nextSession });
     return true;
   };
 
-  const logout = () => setUser(null);
+  const register = async (name: string, email: string, password: string) => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullName: name, email, password, role: "tendero" }),
+    });
+
+    const data = await parseJson(response);
+    if (!response.ok) return false;
+
+    const nextUser: User = data.user;
+    const nextSession: Session = {
+      accessToken: data.session.accessToken ?? "",
+      refreshToken: data.session.refreshToken ?? null,
+    };
+
+    setUser(nextUser);
+    setSession(nextSession);
+    await persistSession({ user: nextUser, session: nextSession });
+    return true;
+  };
+
+  const logout = async () => {
+    if (session) {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      });
+    }
+
+    setUser(null);
+    setSession(null);
+    await persistSession(null);
+  };
 
   const value = useMemo(
     () => ({
       isLoggedIn: user !== null,
       user,
+      isReady,
       login,
       register,
       logout,
     }),
-    [user]
+    [user, isReady]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

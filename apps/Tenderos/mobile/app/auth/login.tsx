@@ -4,7 +4,7 @@ import { Link, Redirect, useRouter } from "expo-router";
 import { useAuth } from "../components/AuthProvider";
 
 export default function LoginScreen() {
-  const { isLoggedIn, login } = useAuth();
+  const { isLoggedIn, isReady, login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("demo@tenderos.app");
   const [password, setPassword] = useState("123456");
@@ -20,10 +20,11 @@ export default function LoginScreen() {
     ]).start();
   }, [fade, slide]);
 
+  if (!isReady) return null;
   if (isLoggedIn) return <Redirect href={"/(tabs)" as never} />;
 
-  const handleLogin = () => {
-    const ok = login(email, password);
+  const handleLogin = async () => {
+    const ok = await login(email, password);
     if (!ok) {
       setError("Credenciales incorrectas. Revisa correo y clave.");
       return;

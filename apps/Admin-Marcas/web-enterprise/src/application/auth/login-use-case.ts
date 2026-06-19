@@ -1,5 +1,6 @@
 import type { LoginCredentials, LoginValidationErrors } from "../../domain/auth/credentials";
 import { validateLoginCredentials } from "../../domain/auth/validation";
+import { login as loginRequest, saveSession } from "./auth-api";
 
 type LoginSuccess = {
   ok: true;
@@ -19,7 +20,11 @@ function hasValidationErrors(errors: LoginValidationErrors): boolean {
   return Boolean(errors.email || errors.password);
 }
 
-// Demo auth flow until backend auth endpoint is integrated.
+function routeByRole(role: string): string {
+  if (role === "admin" || role === "marca") return "/dashboard";
+  return "/dashboard";
+}
+
 export async function loginUseCase(credentials: LoginCredentials): Promise<LoginResult> {
   const errors = validateLoginCredentials(credentials);
 
@@ -27,22 +32,20 @@ export async function loginUseCase(credentials: LoginCredentials): Promise<Login
     return { ok: false, errors };
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  try {
+    const response = await loginRequest(credentials.email, credentials.password);
+    saveSession(response);
 
-  if (
-    credentials.email.trim().toLowerCase() === "admin@savanhi.com" &&
-    credentials.password === "Admin123!"
-  ) {
     return {
       ok: true,
-      userName: "Administrador",
-      nextRoute: "/dashboard",
+      userName: response.user.fullName,
+      nextRoute: routeByRole(response.user.role),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errors: { password: "Credenciales invalidas." },
+      message: error instanceof Error ? error.message : "No fue posible iniciar sesion.",
     };
   }
-
-  return {
-    ok: false,
-    errors: { password: "Credenciales invalidas." },
-    message: "No fue posible iniciar sesion.",
-  };
 }
