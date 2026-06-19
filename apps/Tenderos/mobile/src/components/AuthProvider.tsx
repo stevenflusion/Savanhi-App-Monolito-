@@ -11,9 +11,15 @@ type User = {
   name: string
   email: string
   storeName?: string
+  cedula?: string
   address?: string
   latitude?: number
   longitude?: number
+  photos?: string[]
+  paymentMethod?: "efectivo" | "pichincha"
+  bankAccountName?: string
+  bankAccountNumber?: string
+  bankAccountType?: "ahorro" | "corriente"
 }
 
 type AuthContextType = {
@@ -43,6 +49,30 @@ type AuthContextType = {
     address: string
     latitude: number
     longitude: number
+  }) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  saveProfile: (data: {
+    name: string
+    storeName: string
+  }) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  saveIdentityCard: (cedula: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  savePhotos: (uris: string[]) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  savePaymentMethod: (data: {
+    method: string
+    bankAccountName?: string
+    bankAccountNumber?: string
+    bankAccountType?: string
   }) => Promise<{
     success: boolean
     error?: string
@@ -106,6 +136,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  const saveProfile = async (data: { name: string; storeName: string }) => {
+    await delay(1000)
+    setUser((prev) => (prev ? { ...prev, ...data } : null))
+    return { success: true }
+  }
+
+  const saveIdentityCard = async (cedula: string) => {
+    await delay(800)
+    setUser((prev) => (prev ? { ...prev, cedula } : null))
+    return { success: true }
+  }
+
+  const savePhotos = async (uris: string[]) => {
+    await delay(800)
+    setUser((prev) => (prev ? { ...prev, photos: uris } : null))
+    return { success: true }
+  }
+
+  const savePaymentMethod = async (data: {
+    method: string
+    bankAccountName?: string
+    bankAccountNumber?: string
+    bankAccountType?: string
+  }) => {
+    await delay(800)
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            paymentMethod: data.method as "efectivo" | "pichincha",
+            bankAccountName: data.bankAccountName,
+            bankAccountNumber: data.bankAccountNumber,
+            bankAccountType: data.bankAccountType as "ahorro" | "corriente" | undefined,
+          }
+        : null,
+    )
+    return { success: true }
+  }
+
   const logout = () => {
     setUser(null)
   }
@@ -119,6 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyOTP,
       completeProfile,
       saveLocation,
+      saveProfile,
+      saveIdentityCard,
+      savePhotos,
+      savePaymentMethod,
       logout,
     }),
     [user, isLoading],
