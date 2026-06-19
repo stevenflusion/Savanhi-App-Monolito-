@@ -5,7 +5,7 @@ import { Link, Redirect, useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 
 export default function RegisterScreen() {
-  const { isLoggedIn, register } = useAuth();
+  const { isLoggedIn, isReady, register } = useAuth();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,10 +22,11 @@ export default function RegisterScreen() {
     ]).start();
   }, [fade, slide]);
 
+  if (!isReady) return null;
   if (isLoggedIn) return <Redirect href={"/(tabs)" as never} />;
 
-  const handleRegister = () => {
-    const ok = register(name, email, password);
+  const handleRegister = async () => {
+    const ok = await register(name, email, password);
     if (!ok) {
       setError("Completa datos validos. Clave minima: 6 caracteres.");
       return;

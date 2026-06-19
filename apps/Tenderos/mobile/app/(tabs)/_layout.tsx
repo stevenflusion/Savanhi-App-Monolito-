@@ -13,8 +13,9 @@ type TabButtonArg = {
 };
 
 export default function TabsLayout() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isReady } = useAuth();
   const navBarScreenOptions = useNavBarScreenOptions();
+  if (!isReady) return null;
   if (!isLoggedIn) return <Redirect href="/auth/login" />;
 
   return (

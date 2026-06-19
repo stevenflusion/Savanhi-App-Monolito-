@@ -16,7 +16,7 @@ import ConfirmPasswordStep from "@/src/components/auth/ConfirmPasswordStep";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function LoginScreen() {
-  const { isLoggedIn, login } = useAuth();
+  const { isLoggedIn, isReady, login } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
@@ -66,6 +66,7 @@ export default function LoginScreen() {
     ]).start();
   };
 
+  if (!isReady) return null;
   if (isLoggedIn) return <Redirect href={"/(tabs)" as never} />;
 
   const handleBack = () => {
@@ -76,8 +77,8 @@ export default function LoginScreen() {
     }
   };
 
-  const handleLogin = () => {
-    const ok = login(email, password);
+  const handleLogin = async () => {
+    const ok = await login(email, password);
     if (!ok) return;
     router.replace("/(tabs)" as never);
   };

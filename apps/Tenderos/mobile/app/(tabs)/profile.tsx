@@ -4,7 +4,9 @@ import { MobileTopBar } from "@/src/components/MobileTopBar";
 import { useAuth } from "@/src/components/AuthProvider";
 
 export default function ProfileTab() {
-  const { user, logout } = useAuth();
+  const { user, logout, isReady } = useAuth();
+
+  if (!isReady) return null;
 
   return (
     <SafeAreaView className="flex-1 bg-orange-50">
@@ -20,7 +22,7 @@ export default function ProfileTab() {
         <View className="w-full max-w-xl self-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <Text className="text-lg font-semibold text-slate-900">Tu cuenta</Text>
           <Text className="mt-4 text-sm text-slate-500">Nombre</Text>
-          <Text className="text-base text-slate-900">{user?.name ?? "-"}</Text>
+          <Text className="text-base text-slate-900">{user?.fullName ?? "-"}</Text>
           <Text className="mt-3 text-sm text-slate-500">Correo</Text>
           <Text className="text-base text-slate-900">{user?.email ?? "-"}</Text>
 

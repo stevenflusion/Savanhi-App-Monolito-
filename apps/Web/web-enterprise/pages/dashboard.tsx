@@ -1,4 +1,27 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/router";
+import { useAuth } from "../src/presentation/components/auth/auth-provider";
+
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, session, isReady } = useAuth();
+
+  useEffect(() => {
+    if (isReady && (!session || !user)) {
+      router.replace("/");
+    }
+  }, [isReady, session, user, router]);
+
+  if (!isReady || !session || !user) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-5 py-8 text-slate-100">
+        <div className="mx-auto max-w-6xl">Validando sesion...</div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-slate-100 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-6xl">
@@ -9,6 +32,9 @@ export default function DashboardPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Dashboard</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
             Vista inicial de operacion para seguimiento de usuarios, marcas, campanas y reportes.
+          </p>
+          <p className="mt-3 text-sm text-emerald-300">
+            Sesion activa: {user.fullName} ({user.role})
           </p>
         </header>
 

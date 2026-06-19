@@ -2,7 +2,6 @@
   "extends": "../../../packages/typescript-config/nextjs.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true
