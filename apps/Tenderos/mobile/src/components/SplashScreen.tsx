@@ -1,0 +1,60 @@
+import { View, StyleSheet } from "react-native"
+import LottieView from "lottie-react-native"
+import { useCallback, useRef } from "react"
+
+type SplashScreenProps = {
+  onAnimationFinish: () => void
+}
+
+function SplashScreen({ onAnimationFinish }: SplashScreenProps) {
+  const animationRef = useRef<LottieView>(null)
+  const hasFinished = useRef(false)
+
+  const handleFinish = useCallback(
+    (isCancelled: boolean) => {
+      // Only count non-cancelled completions as "finished"
+      if (isCancelled) return
+      if (hasFinished.current) return
+      hasFinished.current = true
+      onAnimationFinish()
+    },
+    [onAnimationFinish],
+  )
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.lottieWrapper}>
+        <LottieView
+          ref={animationRef}
+          source={require("../../assets/lotties/LottieSplashScreen.json")}
+          autoPlay
+          loop={false}
+          resizeMode="cover"
+          onAnimationFinish={handleFinish}
+          style={styles.animation}
+        />
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  lottieWrapper: {
+    width: 280,
+    height: 280,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  animation: {
+    width: "100%",
+    height: "100%",
+  },
+})
+
+export default SplashScreen

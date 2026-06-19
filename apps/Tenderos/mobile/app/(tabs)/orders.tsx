@@ -1,6 +1,6 @@
-import { SafeAreaView } from "react-native";
-import { MobileTopBar } from "../components/MobileTopBar";
-import { ProductsWorkspace } from "../components/ProductsWorkspace";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MobileTopBar } from "@/src/components/MobileTopBar";
+import { ProductsWorkspace } from "@/src/components/ProductsWorkspace";
 
 export default function ProductsTab() {
   return (
