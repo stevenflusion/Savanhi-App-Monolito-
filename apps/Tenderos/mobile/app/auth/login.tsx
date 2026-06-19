@@ -80,7 +80,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const ok = await login(email, password);
     if (!ok) return;
-    router.replace("/(tabs)" as never);
+    router.replace("/auth/assistant-message" as never);
   };
 
   const stepContent =

@@ -2,7 +2,19 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import * as SecureStore from "expo-secure-store";
 import type { AuthSession, AuthUser } from "@repo/api-contracts";
 
-type User = AuthUser;
+type User = AuthUser & {
+  storeName?: string;
+  cedula?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  photos?: string[];
+  paymentMethod?: "efectivo" | "pichincha";
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankAccountType?: "ahorro" | "corriente";
+};
+
 type Session = Pick<AuthSession, "accessToken" | "refreshToken">;
 
 type StoredSession = {
@@ -17,6 +29,18 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  saveProfile: (data: { name: string; storeName: string }) => Promise<{ success: boolean; error?: string }>;
+  saveIdentityCard: (cedula: string) => Promise<{ success: boolean; error?: string }>;
+  savePhotos: (uris: string[]) => Promise<{ success: boolean; error?: string }>;
+  savePaymentMethod: (data: {
+    method: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankAccountType?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  saveLocation: (data: { address: string; latitude: number; longitude: number }) => Promise<{ success: boolean; error?: string }>;
+  requestOTP: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOTP: (email: string, code: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +72,8 @@ async function loadSession(): Promise<StoredSession | null> {
     return null;
   }
 }
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -112,6 +138,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return true;
   };
 
+  const saveProfile = async (data: { name: string; storeName: string }) => {
+    await delay(1000);
+    setUser((prev) => (prev ? { ...prev, ...data } : null));
+    return { success: true };
+  };
+
+  const saveIdentityCard = async (cedula: string) => {
+    await delay(800);
+    setUser((prev) => (prev ? { ...prev, cedula } : null));
+    return { success: true };
+  };
+
+  const savePhotos = async (uris: string[]) => {
+    await delay(800);
+    setUser((prev) => (prev ? { ...prev, photos: uris } : null));
+    return { success: true };
+  };
+
+  const savePaymentMethod = async (data: {
+    method: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankAccountType?: string;
+  }) => {
+    await delay(800);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            paymentMethod: data.method as "efectivo" | "pichincha",
+            bankAccountName: data.bankAccountName,
+            bankAccountNumber: data.bankAccountNumber,
+            bankAccountType: data.bankAccountType as "ahorro" | "corriente" | undefined,
+          }
+        : null,
+    );
+    return { success: true };
+  };
+
   const logout = async () => {
     if (session) {
       await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -125,6 +190,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await persistSession(null);
   };
 
+  const requestOTP = async (_email: string) => {
+    await delay(1500);
+    return { success: true };
+  };
+
+  const verifyOTP = async (_email: string, code: string) => {
+    await delay(1500);
+    if (code === "123456") {
+      return { success: true, isNewUser: true };
+    }
+    return { success: false, error: "Código incorrecto" };
+  };
+
+  const saveLocation = async (data: { address: string; latitude: number; longitude: number }) => {
+    await delay(800);
+    setUser((prev) => (prev ? { ...prev, ...data } : null));
+    return { success: true };
+  };
+
   const value = useMemo(
     () => ({
       isLoggedIn: user !== null,
@@ -132,9 +216,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isReady,
       login,
       register,
+      saveProfile,
+      saveIdentityCard,
+      savePhotos,
+      savePaymentMethod,
+      saveLocation,
+      requestOTP,
+      verifyOTP,
       logout,
     }),
-    [user, isReady]
+    [user, isReady],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

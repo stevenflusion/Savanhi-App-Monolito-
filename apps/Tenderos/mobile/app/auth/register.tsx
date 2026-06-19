@@ -32,7 +32,7 @@ export default function RegisterScreen() {
       return;
     }
     setError("");
-    router.replace("/(tabs)" as never);
+    router.replace("/auth/assistant-message" as never);
   };
 
   return (
