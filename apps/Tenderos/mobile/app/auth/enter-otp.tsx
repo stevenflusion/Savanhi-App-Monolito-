@@ -13,7 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 import OtpInput from "@/src/components/auth/OtpInput";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 
 export default function EnterOtpScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -23,7 +24,22 @@ export default function EnterOtpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(30);
   const verifyingRef = useRef(false);
+
+  // ── 30-second countdown ──
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ── Fade + slide animation ──
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -63,7 +79,7 @@ export default function EnterOtpScreen() {
 
     if (result.success) {
       if (result.isNewUser) {
-        router.push("/auth/assistant-message" as any);
+        router.push("/auth/access-notify" as any);
         setTimeout(() => setLoading(false), 400);
       } else {
         router.replace("/(tabs)");
@@ -103,21 +119,27 @@ export default function EnterOtpScreen() {
               {/* ── Back Arrow ── */}
               <Pressable
                 onPress={handleBack}
-                className="mb-6 h-14 w-14 flex justify-center"
+                className="mb-10 h-10 w-10 justify-center"
               >
-                <MaterialIcons name="arrow-back" size={26} color="#798091" />
+                <FontAwesome6 name="chevron-left" size={24} color="black" />
               </Pressable>
-              <Text className="pr-24 text-4xl font-medium text-[#25262a]">
-                Ingresa tu codigo
+              <Text className="text-4xl pb-5 font-medium text-gray-900">
+                Ingresa tu codigo de verificación
               </Text>
-              <Text className="mt-4 text-base leading-5 text-gray-500">
-                Enviado a
-                <Text className="text-black font-medium"> Correo. </Text>
-                Este codigo caduca en 10 minutos.
+              <Text className="text-base pt-4 leading-5 text-gray-600">
+                Te enviamos tu código a {email}. Revísalo e introdúcelo a
+                continuación.
+                <Text
+                  className="underline text-gray-900"
+                  onPress={() => router.push("/auth/enter-email")}
+                >
+                  {" "}
+                  Cambiar dirección de email
+                </Text>
               </Text>
 
               {/* ── OTP Input ── */}
-              <View className="mt-8">
+              <View className="mt-8 pb-8">
                 <OtpInput
                   value={code}
                   onChange={(v) => {
@@ -128,18 +150,24 @@ export default function EnterOtpScreen() {
                 />
               </View>
 
-              {/* ── Resend link ── */}
-              <View className="mt-5 flex items-center">
-                <Text className="text-base leading-5 text-gray-500">
-                  ¿No recibiste el código?
-                  <Pressable onPress={handleResend} disabled={resending}>
-                    <Text className="text-base font-semibold text-orange-400">
-                      {resending ? " Reenviando..." : " Reenviar codigo."}
-                    </Text>
-                  </Pressable>
+              {/* ── Timer / Resend ── */}
+              {countdown > 0 ? (
+                <Text className="text-sm text-center leading-5 text-gray-600">
+                  Recibirás el código dentro de {countdown} seg. Quizá necesites
+                  revisar tu carpeta de correo no deseado
                 </Text>
-              </View>
+              ) : (
+                <Pressable onPress={handleResend} disabled={resending}>
+                  <Text className="underline text-center text-lg font-medium text-gray-900">
+                    ¿Aún no has recibido el mensaje?
+                  </Text>
+                </Pressable>
+              )}
             </View>
+            <Text className="text-center flex items-center justify-center text-sm pb-4">
+              <Ionicons name="alert-circle-sharp" size={14} color="black" />{" "}
+              Nunca compartiremos tu email con nadie
+            </Text>
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>

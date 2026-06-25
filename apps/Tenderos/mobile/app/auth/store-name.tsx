@@ -3,25 +3,46 @@ import {
   Animated,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
+  KeyboardEvent,
+  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function StoreNameScreen() {
   const { saveProfile, user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const valid = storeName.trim().length > 0;
+
+  // ── Manual keyboard tracking (bypasses KeyboardAvoidingView bugs on Android) ──
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e: KeyboardEvent) => setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ── Fade + slide animation ──
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -63,75 +84,83 @@ export default function StoreNameScreen() {
   };
 
   return (
-    <View className="flex-1">
-      <SafeAreaView className="flex-1 bg-white">
-        <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <Animated.View
-            className="flex-1"
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            }}
+    <View className="flex-1 bg-white">
+      <Animated.View
+        className="flex-1"
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+          paddingBottom: keyboardHeight,
+        }}
+      >
+        {/* ── Content area (flex-1 pushes CTA to the bottom) ── */}
+        <View className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
+          {/* ── Back Arrow ── */}
+          <Pressable
+            onPress={handleBack}
+            className="mb-10 h-10 w-10 justify-center"
           >
-            <View className="flex-1 px-6 pt-10">
-              {/* ── Back Arrow ── */}
-              <Pressable
-                onPress={handleBack}
-                className="mb-6 h-14 w-14 flex justify-center"
-              >
-                <MaterialIcons name="arrow-back" size={26} color="#798091" />
-              </Pressable>
+            <FontAwesome6 name="chevron-left" size={24} color="black" />
+          </Pressable>
 
-              {/* ── Title ── */}
-              <Text className="pr-20 text-4xl font-medium text-[#25262a]">
-                ¿Cuál es el nombre de tu negocio?
-              </Text>
+          {/* ── Title ── */}
+          <Text className="text-4xl pb-10 font-medium text-gray-900">
+            ¿Cuál es el nombre de tu negocio?
+          </Text>
 
-              {/* ── Input ── */}
-              <TextInput
-                value={storeName}
-                onChangeText={(v) => {
-                  setStoreName(v);
-                  if (error) setError("");
-                }}
-                placeholder="Nombre de tu tienda"
-                placeholderTextColor="#9ca3af"
-                autoCapitalize="words"
-                autoFocus
-                className="mt-8 border-b-2 border-gray-400 pb-2 text-lg text-gray-900"
-              />
+          {/* ── Input ── */}
+          <TextInput
+            value={storeName}
+            onChangeText={(v) => {
+              setStoreName(v);
+              if (error) setError("");
+            }}
+            placeholder="Nombre de tu tienda"
+            placeholderTextColor="#9ca3af"
+            autoCapitalize="words"
+            autoFocus
+            className="h-16 px-4 border rounded-2xl border-gray-900 text-lg  text-gray-900"
+          />
 
-              {error ? (
-                <Text className="mt-3 text-sm text-red-500">{error}</Text>
-              ) : (
-                <Text className="mt-4 text-base leading-5 text-gray-500">
-                  Así identificarán tus clientes tu negocio. Puedes cambiarlo
-                  después.
-                </Text>
-              )}
-            </View>
+          {error ? (
+            <Text className="text-base pt-4 leading-5 text-red-400">
+              {error}
+            </Text>
+          ) : (
+            <Text className="text-base pt-4 leading-5 text-gray-600">
+              Así encontrarán tu negocio en la app. Puedes cambiarlo después
+              desde la configuración de tu perfil.
+            </Text>
+          )}
+        </View>
 
-            {/* ── Bottom-pinned CTA ── */}
-            <View className="px-6 pb-5">
-              <Pressable
-                onPress={handleSubmit}
-                disabled={!valid || loading}
-                className={`min-h-[50px] items-center justify-center rounded-full ${
-                  valid && !loading ? "bg-orange-400" : "bg-gray-100"
-                }`}
-              >
-                <Text
-                  className={`text-base font-semibold ${
-                    valid && !loading ? "text-white" : "text-gray-400"
-                  }`}
-                >
-                  Continuar
-                </Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+        {/* ── Bottom-pinned CTA ── */}
+        <View className="px-6" style={{ paddingBottom: insets.bottom + 16 }}>
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!valid || loading}
+            className={`h-16 items-center justify-center rounded-full ${
+              valid && !loading ? "bg-black" : "bg-gray-100"
+            }`}
+          >
+            <Text
+              className={`text-lg ${
+                valid && !loading ? "text-white" : "text-gray-400"
+              }`}
+            >
+              Siguiente
+            </Text>
+          </Pressable>
+          <Text className="text-center flex items-center justify-center text-sm pt-4">
+            <MaterialCommunityIcons
+              name="folder-alert"
+              size={12}
+              color="black"
+            />{" "}
+            Esta información ayuda a personalizar tu sesión
+          </Text>
+        </View>
+      </Animated.View>
 
       {/* ── Loading overlay ── */}
       {loading && (

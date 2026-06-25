@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import * as SecureStore from "expo-secure-store";
 import type { AuthSession, AuthUser } from "@repo/api-contracts";
 
@@ -29,8 +36,13 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  saveProfile: (data: { name: string; storeName: string }) => Promise<{ success: boolean; error?: string }>;
-  saveIdentityCard: (cedula: string) => Promise<{ success: boolean; error?: string }>;
+  saveProfile: (data: {
+    name: string;
+    storeName: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  saveIdentityCard: (
+    cedula: string,
+  ) => Promise<{ success: boolean; error?: string }>;
   savePhotos: (uris: string[]) => Promise<{ success: boolean; error?: string }>;
   savePaymentMethod: (data: {
     method: string;
@@ -38,15 +50,23 @@ type AuthContextType = {
     bankAccountNumber?: string;
     bankAccountType?: string;
   }) => Promise<{ success: boolean; error?: string }>;
-  saveLocation: (data: { address: string; latitude: number; longitude: number }) => Promise<{ success: boolean; error?: string }>;
+  saveLocation: (data: {
+    address: string;
+    latitude: number;
+    longitude: number;
+  }) => Promise<{ success: boolean; error?: string }>;
   requestOTP: (email: string) => Promise<{ success: boolean; error?: string }>;
-  verifyOTP: (email: string, code: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  verifyOTP: (
+    email: string,
+    code: string,
+  ) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = "savanhi-mobile-session";
-const API_BASE_URL = process.env.EXPO_PUBLIC_TENDEROS_API_URL ?? "http://localhost:4300";
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_TENDEROS_API_URL ?? "http://localhost:4300";
 
 async function parseJson(response: Response) {
   return response.json().catch(() => {
@@ -120,7 +140,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName: name, email, password, role: "tendero" }),
+      body: JSON.stringify({
+        fullName: name,
+        email,
+        password,
+        role: "tendero",
+      }),
     });
 
     const data = await parseJson(response);
@@ -172,7 +197,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             paymentMethod: data.method as "efectivo" | "pichincha",
             bankAccountName: data.bankAccountName,
             bankAccountNumber: data.bankAccountNumber,
-            bankAccountType: data.bankAccountType as "ahorro" | "corriente" | undefined,
+            bankAccountType: data.bankAccountType as
+              | "ahorro"
+              | "corriente"
+              | undefined,
           }
         : null,
     );
@@ -211,10 +239,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       return { success: true, isNewUser: true };
     }
-    return { success: false, error: "Código incorrecto" };
+    return { success: false, error: "Código PIN incorrecto" };
   };
 
-  const saveLocation = async (data: { address: string; latitude: number; longitude: number }) => {
+  const saveLocation = async (data: {
+    address: string;
+    latitude: number;
+    longitude: number;
+  }) => {
     await delay(800);
     setUser((prev) => (prev ? { ...prev, ...data } : null));
     return { success: true };
