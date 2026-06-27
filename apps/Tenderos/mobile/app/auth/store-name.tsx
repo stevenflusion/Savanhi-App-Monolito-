@@ -75,7 +75,7 @@ export default function StoreNameScreen() {
     setError("");
     const result = await saveProfile({ name: user?.fullName || "", storeName });
     if (result.success) {
-      router.push("/auth/identity-card" as any);
+      router.push("/auth/location-permissions" as any);
       setTimeout(() => setLoading(false), 400);
     } else {
       setLoading(false);

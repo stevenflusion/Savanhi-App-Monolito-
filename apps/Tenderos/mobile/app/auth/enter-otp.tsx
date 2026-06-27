@@ -79,7 +79,7 @@ export default function EnterOtpScreen() {
 
     if (result.success) {
       if (result.isNewUser) {
-        router.push("/auth/access-notify" as any);
+        router.push("/auth/person-name" as any);
         setTimeout(() => setLoading(false), 400);
       } else {
         router.replace("/(tabs)");

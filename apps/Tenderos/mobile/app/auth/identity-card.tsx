@@ -83,7 +83,7 @@ export default function IdentityCardScreen() {
     setError("");
     const saveResult = await saveIdentityCard(cedula);
     if (saveResult.success) {
-      router.push("/auth/access-ubication" as any);
+      router.push("/auth/payment-method" as any);
       setTimeout(() => setLoading(false), 400);
     } else {
       setLoading(false);
