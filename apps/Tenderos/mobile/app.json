@@ -7,20 +7,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "tenderosmobile",
-    "plugins": [
-      "expo-router",
-      "expo-font"
-    ],
-    "updates": {
-      "enabled": false,
-      "checkAutomatically": "ON_ERROR_RECOVERY",
-      "fallbackToCacheTimeout": 0
-    },
-    "experiments": {
-      "typedRoutes": true
-    },
     "android": {
       "package": "com.anonymous.tenderosmobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.tenderosmobile"
     }
   }
 }
