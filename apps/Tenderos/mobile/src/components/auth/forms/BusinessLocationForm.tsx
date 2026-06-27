@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
-import MapView, { MapMarker } from "react-native-maps";
+import Mapbox from "@rnmapbox/maps";
 import { useAuth } from "@/src/components/AuthProvider";
 import { useAuthLoading } from "@/src/components/auth/AuthLoadingContext";
 import BackButton from "@/src/components/auth/BackButton";
@@ -18,68 +18,97 @@ import FormButton from "@/src/components/auth/FormButton";
 import { businessLocationMessages } from "@/src/components/auth/messages";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Feather from "@expo/vector-icons/Feather";
+import { MAPBOX_ACCESS_TOKEN, buildGeocodeUrl } from "@/src/lib/mapbox";
 
-// ── Google Places config ──
-const GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY";
+Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 // Default center: Quito, Ecuador
-const DEFAULT_REGION = {
-  latitude: -0.22985,
-  longitude: -78.52495,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
-};
+// NOTE: Mapbox uses [longitude, latitude] order everywhere
+const DEFAULT_LNG = -78.52495;
+const DEFAULT_LAT = -0.22985;
 
 type Suggestion = {
-  place_id: string;
-  description: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
+  id: string;
+  name: string;
+  subtitle: string;
+  coordinates: [number, number]; // [lng, lat]
 };
 
 export default function BusinessLocationForm() {
   const { saveLocation } = useAuth();
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<Mapbox.Camera>(null);
 
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState("");
-  const [latitude, setLatitude] = useState(DEFAULT_REGION.latitude);
-  const [longitude, setLongitude] = useState(DEFAULT_REGION.longitude);
+  const [latitude, setLatitude] = useState(DEFAULT_LAT);
+  const [longitude, setLongitude] = useState(DEFAULT_LNG);
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
+  const [geocodingError, setGeocodingError] = useState("");
   const { setLoading: setGlobalLoading } = useAuthLoading();
+
   useEffect(() => {
     return () => setGlobalLoading(false);
   }, [setGlobalLoading]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
   const hasLocation = selectedAddress.length > 0;
 
-  // ── Google Places Autocomplete (debounced 400ms) ──
+  // ── Mapbox Geocoding v6 (single call, debounced 400ms, AbortController) ──
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.trim().length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
+
+    // Cancel any in-flight request so only the latest resolves
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    abortRef.current = new AbortController();
+
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&components=country:ec&key=${GOOGLE_API_KEY}`;
-      const res = await fetch(url);
+      const url = buildGeocodeUrl(query);
+      const res = await fetch(url, { signal: abortRef.current.signal });
       const data = await res.json();
-      if (data.predictions) {
-        setSuggestions(data.predictions);
+
+      if (data.features?.length > 0) {
+        setSuggestions(
+          data.features.map(
+            (f: {
+              id?: string;
+              geometry: { coordinates: [number, number] };
+              properties: { name: string; place_formatted: string };
+            }) => ({
+              id:
+                f.id ??
+                `${f.geometry.coordinates[0]}-${f.geometry.coordinates[1]}`,
+              name: f.properties?.name ?? "",
+              subtitle: f.properties?.place_formatted ?? "",
+              coordinates: f.geometry.coordinates, // [lng, lat]
+            }),
+          ),
+        );
         setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
       }
-    } catch {
-      // Silently fail
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setGeocodingError("Error al buscar dirección");
+      // Auto-dismiss toast after 3s
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setGeocodingError(""), 3000);
     }
   }, []);
 
@@ -92,37 +121,22 @@ export default function BusinessLocationForm() {
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
-  // ── Select suggestion → get coords via Place Details ──
-  const selectSuggestion = async (suggestion: Suggestion) => {
+  // ── Select suggestion → flyTo [lng, lat] + set state (single call) ──
+  const selectSuggestion = (suggestion: Suggestion) => {
     Keyboard.dismiss();
     setShowSuggestions(false);
-    setSearch(suggestion.description);
-    setSelectedAddress(suggestion.description);
-
-    try {
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&fields=geometry,formatted_address&key=${GOOGLE_API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.result?.geometry?.location) {
-        const { lat, lng } = data.result.geometry.location;
-        setLatitude(lat);
-        setLongitude(lng);
-        mapRef.current?.animateToRegion(
-          {
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          500,
-        );
-      }
-    } catch {
-      // Coords stay at default
-    }
+    const [lng, lat] = suggestion.coordinates; // [lng, lat] from Mapbox
+    const fullAddress = `${suggestion.name}, ${suggestion.subtitle}`;
+    setSearch(fullAddress);
+    setSelectedAddress(fullAddress);
+    setLatitude(lat);
+    setLongitude(lng);
+    cameraRef.current?.flyTo([lng, lat], 500);
   };
 
   // ── GPS: use current location ──
@@ -164,15 +178,8 @@ export default function BusinessLocationForm() {
         setSearch(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
       }
 
-      mapRef.current?.animateToRegion(
-        {
-          latitude: lat,
-          longitude: lng,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        500,
-      );
+      // Animate camera to GPS coords using Mapbox flyTo [lng, lat]
+      cameraRef.current?.flyTo([lng, lat], 500);
     } catch {
       setGpsError(businessLocationMessages.errors.gpsFailed);
     }
@@ -180,8 +187,9 @@ export default function BusinessLocationForm() {
   };
 
   // ── Draggable pin ──
-  const onMarkerDragEnd = (e: any) => {
-    const { latitude: lat, longitude: lng } = e.nativeEvent.coordinate;
+  // onDragEnd receives a GeoJSON Feature; coordinates = [lng, lat]
+  const onDragEnd = (feature: any) => {
+    const [lng, lat] = feature.geometry.coordinates;
     setLatitude(lat);
     setLongitude(lng);
   };
@@ -243,12 +251,12 @@ export default function BusinessLocationForm() {
             )}
           </View>
 
-          {/* ── Suggestions dropdown ── */}
+          {/* ── Suggestions dropdown (Mapbox Geocoding results) ── */}
           {showSuggestions && suggestions.length > 0 && (
             <View className="absolute left-0 right-0 top-[56px] z-20 max-h-52 rounded-xl border border-gray-200 bg-white shadow-lg">
               <FlatList
                 data={suggestions}
-                keyExtractor={(item) => item.place_id}
+                keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <Pressable
                     onPress={() => selectSuggestion(item)}
@@ -261,15 +269,22 @@ export default function BusinessLocationForm() {
                     />
                     <View className="ml-3 flex-1">
                       <Text className="text-base text-gray-900">
-                        {item.structured_formatting.main_text}
+                        {item.name}
                       </Text>
                       <Text className="text-sm text-gray-500">
-                        {item.structured_formatting.secondary_text}
+                        {item.subtitle}
                       </Text>
                     </View>
                   </Pressable>
                 )}
               />
+            </View>
+          )}
+
+          {/* ── Geocoding error toast (non-blocking, auto-dismiss 3s) ── */}
+          {geocodingError.length > 0 && (
+            <View className="mt-2 rounded-lg bg-red-50 px-4 py-2">
+              <Text className="text-sm text-red-600">{geocodingError}</Text>
             </View>
           )}
         </View>
@@ -297,27 +312,25 @@ export default function BusinessLocationForm() {
           ) : null}
         </View>
 
-        {/* ── Map ── */}
+        {/* ── Map (Mapbox) ── */}
         <View className="mt-3 h-40 overflow-hidden rounded-xl border border-gray-200">
-          <MapView
-            ref={mapRef}
-            className="h-full w-full"
-            initialRegion={DEFAULT_REGION}
-            region={{
-              latitude,
-              longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-          >
-            <MapMarker
-              draggable
-              coordinate={{ latitude, longitude }}
-              onDragEnd={onMarkerDragEnd}
-              title="Tu negocio"
-              description={selectedAddress || "Arrastra para ajustar"}
+          <Mapbox.MapView className="h-full w-full">
+            <Mapbox.Camera
+              ref={cameraRef}
+              centerCoordinate={[longitude, latitude]} // [lng, lat]
+              zoomLevel={15}
+              animationMode="flyTo"
+              animationDuration={500}
             />
-          </MapView>
+            <Mapbox.PointAnnotation
+              id="business-pin"
+              coordinate={[longitude, latitude]} // [lng, lat]
+              draggable
+              onDragEnd={onDragEnd}
+              title="Tu negocio"
+              subtitle={selectedAddress || "Arrastra para ajustar"}
+            />
+          </Mapbox.MapView>
         </View>
 
         {/* ── Map help text ── */}

@@ -3,29 +3,29 @@ import { Image, Keyboard, Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
-import MapView, { MapMarker } from "react-native-maps";
+import Mapbox from "@rnmapbox/maps";
 import { useAuth } from "@/src/components/AuthProvider";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Feather from "@expo/vector-icons/Feather";
+import { MAPBOX_ACCESS_TOKEN } from "@/src/lib/mapbox";
+
+Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 // Default center: Quito, Ecuador
-const DEFAULT_REGION = {
-  latitude: -0.22985,
-  longitude: -78.52495,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
-};
+// NOTE: Mapbox uses [longitude, latitude] order everywhere
+const DEFAULT_LNG = -78.52495;
+const DEFAULT_LAT = -0.22985;
 
 export default function BusinessLocationScreen() {
   const { saveLocation } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<Mapbox.Camera>(null);
 
   const [selectedAddress, setSelectedAddress] = useState("");
-  const [latitude, setLatitude] = useState(DEFAULT_REGION.latitude);
-  const [longitude, setLongitude] = useState(DEFAULT_REGION.longitude);
+  const [latitude, setLatitude] = useState(DEFAULT_LAT);
+  const [longitude, setLongitude] = useState(DEFAULT_LNG);
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
@@ -57,6 +57,9 @@ export default function BusinessLocationScreen() {
       setGpsLat(lat);
       setGpsLng(lng);
 
+      // Animate camera to GPS coords using Mapbox flyTo [lng, lat]
+      cameraRef.current?.flyTo([lng, lat], 500);
+
       // Reverse geocode → address text
       const revGeo = await Location.reverseGeocodeAsync({
         latitude: lat,
@@ -84,8 +87,9 @@ export default function BusinessLocationScreen() {
   };
 
   // ── Draggable pin ──
-  const onMarkerDragEnd = (e: any) => {
-    const { latitude: lat, longitude: lng } = e.nativeEvent.coordinate;
+  // onDragEnd receives a GeoJSON Feature; coordinates = [lng, lat]
+  const onDragEnd = (feature: any) => {
+    const [lng, lat] = feature.geometry.coordinates;
     setLatitude(lat);
     setLongitude(lng);
     setSelectedAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
@@ -116,15 +120,7 @@ export default function BusinessLocationScreen() {
       setLatitude(finalLat);
       setLongitude(finalLng);
       setShowGpsResult(false);
-      mapRef.current?.animateToRegion(
-        {
-          latitude: finalLat,
-          longitude: finalLng,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        500,
-      );
+      cameraRef.current?.flyTo([finalLng, finalLat], 500);
       router.push("/auth/store-photos" as any);
     }
   };
@@ -136,26 +132,24 @@ export default function BusinessLocationScreen() {
 
   return (
     <View className="flex-1 bg-gray-200">
-      {/* ══════ FULL-SCREEN MAP AS BACKGROUND ══════ */}
-      <MapView
-        ref={mapRef}
-        className="absolute inset-0 h-full w-full"
-        initialRegion={DEFAULT_REGION}
-        region={{
-          latitude,
-          longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-      >
-        <MapMarker
-          draggable
-          coordinate={{ latitude, longitude }}
-          onDragEnd={onMarkerDragEnd}
-          title="Tu negocio"
-          description={selectedAddress || "Arrastra para ajustar"}
+      {/* ══════ FULL-SCREEN MAP AS BACKGROUND (Mapbox) ══════ */}
+      <Mapbox.MapView className="absolute inset-0 h-full w-full">
+        <Mapbox.Camera
+          ref={cameraRef}
+          centerCoordinate={[longitude, latitude]} // [lng, lat]
+          zoomLevel={15}
+          animationMode="flyTo"
+          animationDuration={500}
         />
-      </MapView>
+        <Mapbox.PointAnnotation
+          id="business-pin"
+          coordinate={[longitude, latitude]} // [lng, lat]
+          draggable
+          onDragEnd={onDragEnd}
+          title="Tu negocio"
+          subtitle={selectedAddress || "Arrastra para ajustar"}
+        />
+      </Mapbox.MapView>
 
       {/* ══════ UI OVERLAY (on top of map) ══════ */}
       <View className="flex-1">
