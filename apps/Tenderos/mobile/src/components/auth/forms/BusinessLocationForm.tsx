@@ -323,6 +323,9 @@ export default function BusinessLocationForm() {
           <Mapbox.MapView
             style={{ flex: 1 }}
             styleURL="mapbox://styles/mapbox/streets-v12"
+            scaleBarEnabled={false}
+            logoEnabled={false}
+            attributionEnabled={false}
           >
             <Mapbox.Camera
               ref={cameraRef}
@@ -332,6 +335,7 @@ export default function BusinessLocationForm() {
               animationDuration={500}
             />
             <Mapbox.PointAnnotation
+              key={`pin-${latitude}-${longitude}`}
               id="business-pin"
               coordinate={[longitude, latitude]} // [lng, lat]
               draggable
