@@ -16,7 +16,7 @@ module.exports = {
       [
         "@rnmapbox/maps",
         {
-          RNMapboxMapsVersion: "11",
+          RNMapboxMapsVersion: "11.20.1",
         },
       ],
       "expo-router",
