@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { Image, Keyboard, Modal, Pressable, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Image,
+  Keyboard,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
@@ -10,12 +19,21 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Feather from "@expo/vector-icons/Feather";
 import { MAPBOX_ACCESS_TOKEN } from "@/src/lib/mapbox";
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+if (MAPBOX_ACCESS_TOKEN) {
+  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+} else {
+  console.warn(
+    "MAPBOX_ACCESS_TOKEN is empty — map tiles will not load. Check .env and app.config.js",
+  );
+}
 
 // Default center: Quito, Ecuador
 // NOTE: Mapbox uses [longitude, latitude] order everywhere
 const DEFAULT_LNG = -78.52495;
 const DEFAULT_LAT = -0.22985;
+
+const SHEET_ANIM_DURATION = 300;
+const DISMISS_THRESHOLD = 120;
 
 export default function BusinessLocationScreen() {
   const { saveLocation } = useAuth();
@@ -30,11 +48,63 @@ export default function BusinessLocationScreen() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
 
-  // Bottom-sheet state (GPS result)
+  // Bottom-sheet state (GPS result) — animated with PanResponder
   const [showGpsResult, setShowGpsResult] = useState(false);
   const [gpsAddress, setGpsAddress] = useState("");
   const [gpsLat, setGpsLat] = useState(0);
   const [gpsLng, setGpsLng] = useState(0);
+
+  const sheetAnimY = useRef(new Animated.Value(0)).current;
+  const sheetVisibleRef = useRef(false);
+
+  // Sync the animated value with show/hide transitions
+  useEffect(() => {
+    if (showGpsResult) {
+      sheetVisibleRef.current = true;
+      sheetAnimY.setValue(0);
+    }
+  }, [showGpsResult, sheetAnimY]);
+
+  const dismissSheet = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      Animated.timing(sheetAnimY, {
+        toValue: 400,
+        duration: SHEET_ANIM_DURATION,
+        useNativeDriver: true,
+      }).start(() => {
+        sheetVisibleRef.current = false;
+        setShowGpsResult(false);
+        resolve();
+      });
+    });
+  }, [sheetAnimY]);
+
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
+      onPanResponderMove: (_, gs) => {
+        // Only allow downward drag when sheet is at origin
+        if (gs.dy > 0) {
+          sheetAnimY.setValue(gs.dy);
+        }
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > DISMISS_THRESHOLD || gs.vy > 0.5) {
+          // Flinged / dragged past threshold → dismiss
+          dismissSheet();
+        } else {
+          // Snap back
+          Animated.spring(sheetAnimY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 20,
+            stiffness: 200,
+          }).start();
+        }
+      },
+    }),
+  ).current;
 
   const hasLocation = selectedAddress.length > 0 || showGpsResult;
 
@@ -54,6 +124,8 @@ export default function BusinessLocationScreen() {
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude: lat, longitude: lng } = loc.coords;
+      setLatitude(lat);
+      setLongitude(lng);
       setGpsLat(lat);
       setGpsLng(lng);
 
@@ -106,6 +178,10 @@ export default function BusinessLocationScreen() {
 
     if (!finalAddress) return;
 
+    // 1. Animate the bottom sheet out, then wait for it to finish
+    await dismissSheet();
+
+    // 2. THEN show loading overlay and save
     setLoading(true);
     const result = await saveLocation({
       address: finalAddress,
@@ -119,7 +195,6 @@ export default function BusinessLocationScreen() {
       setSelectedAddress(finalAddress);
       setLatitude(finalLat);
       setLongitude(finalLng);
-      setShowGpsResult(false);
       cameraRef.current?.flyTo([finalLng, finalLat], 500);
       router.push("/auth/store-photos" as any);
     }
@@ -133,7 +208,13 @@ export default function BusinessLocationScreen() {
   return (
     <View className="flex-1 bg-gray-200">
       {/* ══════ FULL-SCREEN MAP AS BACKGROUND (Mapbox) ══════ */}
-      <Mapbox.MapView className="absolute inset-0 h-full w-full">
+      <Mapbox.MapView
+        style={StyleSheet.absoluteFill}
+        styleURL="mapbox://styles/mapbox/streets-v12"
+        scaleBarEnabled={false}
+        logoEnabled={false}
+        attributionEnabled={false}
+      >
         <Mapbox.Camera
           ref={cameraRef}
           centerCoordinate={[longitude, latitude]} // [lng, lat]
@@ -142,6 +223,7 @@ export default function BusinessLocationScreen() {
           animationDuration={500}
         />
         <Mapbox.PointAnnotation
+          key={`pin-${latitude}-${longitude}`}
           id="business-pin"
           coordinate={[longitude, latitude]} // [lng, lat]
           draggable
@@ -214,23 +296,24 @@ export default function BusinessLocationScreen() {
         </View>
       </View>
 
-      {/* ══════ GPS RESULT BOTTOM SHEET (Modal) ══════ */}
-      <Modal
-        visible={showGpsResult}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowGpsResult(false)}
-      >
-        <View className="flex-1 justify-end bg-black/40">
+      {/* ══════ GPS RESULT BOTTOM SHEET (animated + draggable) ══════ */}
+      {showGpsResult && (
+        <View className="absolute inset-0 z-40">
           {/* Tap backdrop to dismiss */}
           <Pressable
-            className="flex-1"
-            onPress={() => setShowGpsResult(false)}
+            className="flex-1 bg-black/40"
+            onPress={dismissSheet}
           />
 
           {/* Sheet */}
-          <View className="rounded-t-3xl bg-white px-6 pb-10 pt-2">
-            {/* Handle bar */}
+          <Animated.View
+            style={{
+              transform: [{ translateY: sheetAnimY }],
+            }}
+            className="rounded-t-3xl bg-white px-6 pb-10 pt-2"
+            {...sheetPanResponder.panHandlers}
+          >
+            {/* Draggable handle bar */}
             <View className="mb-6 self-center h-1 w-12 rounded-full bg-gray-400" />
 
             {/* Icon */}
@@ -251,7 +334,7 @@ export default function BusinessLocationScreen() {
               className="h-16 items-center justify-center rounded-full bg-black"
             >
               <Text className="text-lg font-medium text-white">
-                {loading ? "Guardando..." : "Confirmar ubicación"}
+                {"Confirmar ubicación"}
               </Text>
             </Pressable>
 
@@ -259,9 +342,9 @@ export default function BusinessLocationScreen() {
               <MaterialIcons name="lock" size={12} color="black" /> Esta
               información ayuda a personalizar tu sesión
             </Text>
-          </View>
+          </Animated.View>
         </View>
-      </Modal>
+      )}
 
       {/* ══════ LOADING OVERLAY ══════ */}
       {loading && (

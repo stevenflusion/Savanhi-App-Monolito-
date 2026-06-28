@@ -20,8 +20,8 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 
 prepare_react_native_project!
 
-# @generated begin @rnmapbox/maps-rnmapboxmapsimpl - expo prebuild (DO NOT MODIFY) sync-e564ff4f92e1d24538e8fcaccc7e757965f6caeb
-$RNMapboxMapsVersion = '11'
+# @generated begin @rnmapbox/maps-rnmapboxmapsimpl - expo prebuild (DO NOT MODIFY) sync-989485861fb4f1b7c7103aa6000aa6bfa5515698
+$RNMapboxMapsVersion = '11.20.1'
 # @generated end @rnmapbox/maps-rnmapboxmapsimpl
 target 'TenderosMobile' do
   use_expo_modules!
