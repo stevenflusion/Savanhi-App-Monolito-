@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Image, Keyboard, Modal, Pressable, Text, View } from "react-native";
+import { Image, Keyboard, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
@@ -10,7 +10,13 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import Feather from "@expo/vector-icons/Feather";
 import { MAPBOX_ACCESS_TOKEN } from "@/src/lib/mapbox";
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+if (MAPBOX_ACCESS_TOKEN) {
+  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+} else {
+  console.warn(
+    "MAPBOX_ACCESS_TOKEN is empty — map tiles will not load. Check .env and app.config.js",
+  );
+}
 
 // Default center: Quito, Ecuador
 // NOTE: Mapbox uses [longitude, latitude] order everywhere
@@ -133,7 +139,7 @@ export default function BusinessLocationScreen() {
   return (
     <View className="flex-1 bg-gray-200">
       {/* ══════ FULL-SCREEN MAP AS BACKGROUND (Mapbox) ══════ */}
-      <Mapbox.MapView className="absolute inset-0 h-full w-full">
+      <Mapbox.MapView style={StyleSheet.absoluteFill} styleURL="mapbox://styles/mapbox/streets-v12">
         <Mapbox.Camera
           ref={cameraRef}
           centerCoordinate={[longitude, latitude]} // [lng, lat]

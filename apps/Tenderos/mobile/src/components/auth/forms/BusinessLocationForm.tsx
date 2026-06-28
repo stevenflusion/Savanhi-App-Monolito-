@@ -20,7 +20,13 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Feather from "@expo/vector-icons/Feather";
 import { MAPBOX_ACCESS_TOKEN, buildGeocodeUrl } from "@/src/lib/mapbox";
 
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+if (MAPBOX_ACCESS_TOKEN) {
+  Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+} else {
+  console.warn(
+    "MAPBOX_ACCESS_TOKEN is empty — map tiles will not load. Check .env and app.config.js",
+  );
+}
 
 // Default center: Quito, Ecuador
 // NOTE: Mapbox uses [longitude, latitude] order everywhere
@@ -313,8 +319,11 @@ export default function BusinessLocationForm() {
         </View>
 
         {/* ── Map (Mapbox) ── */}
-        <View className="mt-3 h-40 overflow-hidden rounded-xl border border-gray-200">
-          <Mapbox.MapView className="h-full w-full">
+        <View className="mt-3 h-40 rounded-xl border border-gray-200">
+          <Mapbox.MapView
+            style={{ flex: 1 }}
+            styleURL="mapbox://styles/mapbox/streets-v12"
+          >
             <Mapbox.Camera
               ref={cameraRef}
               centerCoordinate={[longitude, latitude]} // [lng, lat]
