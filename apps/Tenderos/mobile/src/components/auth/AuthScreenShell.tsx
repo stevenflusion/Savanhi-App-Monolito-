@@ -15,10 +15,9 @@ type Props = {
 const ROUTE_TO_STEP: Record<string, number> = {
   "person-name": 1,
   "store-name": 2,
-  "identity-card": 3,
-  "business-location": 4,
-  "store-photos": 5,
-  "payment-method": 6,
+  "business-location": 3,
+  "store-photos": 4,
+  "payment-method": 5,
 };
 
 export default function AuthScreenShell({

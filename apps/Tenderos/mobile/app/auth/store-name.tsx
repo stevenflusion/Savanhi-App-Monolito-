@@ -14,8 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import StepHeader from "@/src/components/auth/StepHeader";
 
 export default function StoreNameScreen() {
   const { saveProfile, user } = useAuth();
@@ -63,11 +63,6 @@ export default function StoreNameScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const handleBack = () => {
-    Keyboard.dismiss();
-    setTimeout(() => router.back(), 50);
-  };
-
   const handleSubmit = async () => {
     if (!valid || loading) return;
     Keyboard.dismiss();
@@ -95,13 +90,7 @@ export default function StoreNameScreen() {
       >
         {/* ── Content area (flex-1 pushes CTA to the bottom) ── */}
         <View className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
-          {/* ── Back Arrow ── */}
-          <Pressable
-            onPress={handleBack}
-            className="mb-10 h-10 w-10 justify-center"
-          >
-            <FontAwesome6 name="chevron-left" size={24} color="black" />
-          </Pressable>
+          <StepHeader current={2} total={5} />
 
           {/* ── Title ── */}
           <Text className="text-4xl pb-10 font-medium text-gray-900">

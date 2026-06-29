@@ -11,7 +11,6 @@ import type { AuthSession, AuthUser } from "@repo/api-contracts";
 
 type User = AuthUser & {
   storeName?: string;
-  cedula?: string;
   address?: string;
   latitude?: number;
   longitude?: number;
@@ -40,9 +39,6 @@ type AuthContextType = {
     name: string;
     storeName: string;
   }) => Promise<{ success: boolean; error?: string }>;
-  saveIdentityCard: (
-    cedula: string,
-  ) => Promise<{ success: boolean; error?: string }>;
   savePhotos: (uris: string[]) => Promise<{ success: boolean; error?: string }>;
   savePaymentMethod: (data: {
     method: string;
@@ -171,12 +167,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return { success: true };
   };
 
-  const saveIdentityCard = async (cedula: string) => {
-    await delay(800);
-    setUser((prev) => (prev ? { ...prev, cedula } : null));
-    return { success: true };
-  };
-
   const savePhotos = async (uris: string[]) => {
     await delay(800);
     setUser((prev) => (prev ? { ...prev, photos: uris } : null));
@@ -260,7 +250,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       register,
       saveProfile,
-      saveIdentityCard,
       savePhotos,
       savePaymentMethod,
       saveLocation,
