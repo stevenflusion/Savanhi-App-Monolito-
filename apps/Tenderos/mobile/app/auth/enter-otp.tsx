@@ -4,6 +4,7 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   Text,
@@ -15,6 +16,7 @@ import { useAuth } from "@/src/components/AuthProvider";
 import OtpInput from "@/src/components/auth/OtpInput";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function EnterOtpScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -25,6 +27,7 @@ export default function EnterOtpScreen() {
   const [error, setError] = useState("");
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [showChangeEmailModal, setShowChangeEmailModal] = useState(false);
   const verifyingRef = useRef(false);
 
   // ── 30-second countdown ──
@@ -128,12 +131,11 @@ export default function EnterOtpScreen() {
               </Text>
               <Text className="text-base pt-4 leading-5 text-gray-600">
                 Te enviamos tu código a {email}. Revísalo e introdúcelo a
-                continuación.
+                continuación.{" "}
                 <Text
+                  onPress={() => setShowChangeEmailModal(true)}
                   className="underline text-gray-900"
-                  onPress={() => router.push("/auth/enter-email")}
                 >
-                  {" "}
                   Cambiar dirección de email
                 </Text>
               </Text>
@@ -165,12 +167,54 @@ export default function EnterOtpScreen() {
               )}
             </View>
             <Text className="text-center flex items-center justify-center text-sm pb-4">
-              <Ionicons name="alert-circle-sharp" size={14} color="black" />{" "}
-              Nunca compartiremos tu email con nadie
+              <Ionicons name="alert-circle-sharp" size={14} color="black" /> El
+              codigo recibido es unico no lo compartas
             </Text>
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* ── Change email modal ── */}
+      <Modal
+        visible={showChangeEmailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChangeEmailModal(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className="w-full items-center rounded-2xl bg-white px-6 pb-6 pt-8">
+            <MaterialCommunityIcons
+              name="email-edit-outline"
+              size={34}
+              color="black"
+            />
+            <Text className="text-2xl text-center py-5 font-medium text-[#25262a]">
+              ¿Deseas cambiar el correo?
+            </Text>
+            <Text className="text-base text-center leading-6 text-gray-600">
+              Si cambiás de correo, tendrás que pedir un nuevo código.
+            </Text>
+
+            <View className="mt-8 w-full flex-row gap-3">
+              <Pressable
+                onPress={() => setShowChangeEmailModal(false)}
+                className="flex-1 h-14 items-center justify-center rounded-full bg-gray-100"
+              >
+                <Text className="text-base text-gray-700">Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setShowChangeEmailModal(false);
+                  router.push("/auth/enter-email");
+                }}
+                className="flex-1 h-14 items-center justify-center rounded-full bg-gray-900"
+              >
+                <Text className="text-base text-white">Cambiar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Loading overlay ── */}
       {loading && (

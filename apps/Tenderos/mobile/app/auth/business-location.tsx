@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
+  Easing,
   Image,
   Keyboard,
   PanResponder,
@@ -9,15 +11,16 @@ import {
   Text,
   View,
 } from "react-native";
+import Feather from "@expo/vector-icons/Feather";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import Mapbox from "@rnmapbox/maps";
 import { useAuth } from "@/src/components/AuthProvider";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import Feather from "@expo/vector-icons/Feather";
+import StepHeader from "@/src/components/auth/StepHeader";
 import { MAPBOX_ACCESS_TOKEN } from "@/src/lib/mapbox";
+import { searchStore, clearSearchStore } from "@/src/lib/search-store";
 
 if (MAPBOX_ACCESS_TOKEN) {
   Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
@@ -28,7 +31,6 @@ if (MAPBOX_ACCESS_TOKEN) {
 }
 
 // Default center: Quito, Ecuador
-// NOTE: Mapbox uses [longitude, latitude] order everywhere
 const DEFAULT_LNG = -78.52495;
 const DEFAULT_LAT = -0.22985;
 
@@ -45,25 +47,23 @@ export default function BusinessLocationScreen() {
   const [latitude, setLatitude] = useState(DEFAULT_LAT);
   const [longitude, setLongitude] = useState(DEFAULT_LNG);
   const [loading, setLoading] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false);
+
+  // ── GPS state: auto-locate on mount ──
+  const [isLocating, setIsLocating] = useState(true);
   const [gpsError, setGpsError] = useState("");
 
-  // Bottom-sheet state (GPS result) — animated with PanResponder
-  const [showGpsResult, setShowGpsResult] = useState(false);
-  const [gpsAddress, setGpsAddress] = useState("");
-  const [gpsLat, setGpsLat] = useState(0);
-  const [gpsLng, setGpsLng] = useState(0);
+  // ── Bottom-sheet state ──
+  const [showAddressSheet, setShowAddressSheet] = useState(false);
 
   const sheetAnimY = useRef(new Animated.Value(0)).current;
   const sheetVisibleRef = useRef(false);
 
-  // Sync the animated value with show/hide transitions
   useEffect(() => {
-    if (showGpsResult) {
+    if (showAddressSheet) {
       sheetVisibleRef.current = true;
       sheetAnimY.setValue(0);
     }
-  }, [showGpsResult, sheetAnimY]);
+  }, [showAddressSheet, sheetAnimY]);
 
   const dismissSheet = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -73,7 +73,7 @@ export default function BusinessLocationScreen() {
         useNativeDriver: true,
       }).start(() => {
         sheetVisibleRef.current = false;
-        setShowGpsResult(false);
+        setShowAddressSheet(false);
         resolve();
       });
     });
@@ -84,17 +84,12 @@ export default function BusinessLocationScreen() {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
       onPanResponderMove: (_, gs) => {
-        // Only allow downward drag when sheet is at origin
-        if (gs.dy > 0) {
-          sheetAnimY.setValue(gs.dy);
-        }
+        if (gs.dy > 0) sheetAnimY.setValue(gs.dy);
       },
       onPanResponderRelease: (_, gs) => {
         if (gs.dy > DISMISS_THRESHOLD || gs.vy > 0.5) {
-          // Flinged / dragged past threshold → dismiss
           dismissSheet();
         } else {
-          // Snap back
           Animated.spring(sheetAnimY, {
             toValue: 0,
             useNativeDriver: true,
@@ -106,97 +101,180 @@ export default function BusinessLocationScreen() {
     }),
   ).current;
 
-  const hasLocation = selectedAddress.length > 0 || showGpsResult;
-
-  // ── GPS: get current location → show bottom sheet ──
-  const handleUseGPS = async () => {
-    setGpsError("");
-    setGpsLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setGpsError("No dimos acceso a tu ubicación.");
-        setGpsLoading(false);
-        return;
+  // ── Reverse geocode helper ──
+  const reverseGeocode = useCallback(
+    async (lat: number, lng: number): Promise<string> => {
+      try {
+        const revGeo = await Location.reverseGeocodeAsync({
+          latitude: lat,
+          longitude: lng,
+        });
+        if (revGeo.length > 0 && revGeo[0]) {
+          const addr = revGeo[0];
+          const parts = [
+            addr.street,
+            addr.streetNumber,
+            addr.city,
+            addr.region,
+          ].filter((s): s is string => !!s);
+          return parts.join(", ");
+        }
+        return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      } catch {
+        return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       }
+    },
+    [],
+  );
 
+  // ── When coming BACK from search-location: read store → update pin ──
+  useFocusEffect(
+    useCallback(() => {
+      if (searchStore.lat && searchStore.lng) {
+        const { lat, lng, address } = searchStore;
+        clearSearchStore();
+        setLatitude(lat);
+        setLongitude(lng);
+        setSelectedAddress(address);
+        setIsLocating(false);
+        // Small delay so map settles before sheet
+        cameraRef.current?.flyTo([lng, lat], 1000);
+        setTimeout(() => setShowAddressSheet(true), 600);
+      }
+    }, []),
+  );
+
+  // ── Auto-locate on mount (permission already granted) ──
+  useEffect(() => {
+    let cancelled = false;
+
+    const initLocation = async () => {
+      setIsLocating(true);
+      setGpsError("");
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+
+        const { latitude: lat, longitude: lng } = loc.coords;
+        setLatitude(lat);
+        setLongitude(lng);
+        const address = await reverseGeocode(lat, lng);
+        if (cancelled) return;
+        setSelectedAddress(address);
+        cameraRef.current?.flyTo([lng, lat], 1000);
+      } catch {
+        if (!cancelled) {
+          setGpsError(
+            "No pudimos obtener tu ubicación. Mové el pin para indicar tu dirección.",
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLocating(false);
+      }
+    };
+
+    initLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reverseGeocode]);
+
+  // ── FAB: speed-dial state ──
+  const [showFabOptions, setShowFabOptions] = useState(false);
+  const [fabOptionsRendered, setFabOptionsRendered] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const fabAnim = useRef(new Animated.Value(0)).current;
+  const fabRotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (showFabOptions) {
+      setFabOptionsRendered(true);
+      fabAnim.setValue(0);
+      fabRotateAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(fabAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabRotateAnim, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fabAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabRotateAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => setFabOptionsRendered(false));
+    }
+  }, [showFabOptions, fabAnim, fabRotateAnim]);
+
+  // ── GPS: get current location (speed-dial option) ──
+  const handleGetCurrentLocation = async () => {
+    setGpsLoading(true);
+    setGpsError("");
+    try {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude: lat, longitude: lng } = loc.coords;
       setLatitude(lat);
       setLongitude(lng);
-      setGpsLat(lat);
-      setGpsLng(lng);
-
-      // Animate camera to GPS coords using Mapbox flyTo [lng, lat]
-      cameraRef.current?.flyTo([lng, lat], 500);
-
-      // Reverse geocode → address text
-      const revGeo = await Location.reverseGeocodeAsync({
-        latitude: lat,
-        longitude: lng,
-      });
-      if (revGeo.length > 0 && revGeo[0]) {
-        const addr = revGeo[0];
-        const parts = [
-          addr.street,
-          addr.streetNumber,
-          addr.city,
-          addr.region,
-        ].filter((s): s is string => !!s);
-        setGpsAddress(parts.join(", "));
-      } else {
-        setGpsAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      }
-
-      // Show bottom sheet with the result
-      setShowGpsResult(true);
+      const address = await reverseGeocode(lat, lng);
+      setSelectedAddress(address);
+      cameraRef.current?.flyTo([lng, lat], 1000);
     } catch {
-      setGpsError("No pudimos obtener tu ubicación.");
+      setGpsError(
+        "No pudimos obtener tu ubicación. Mové el pin para indicar tu dirección.",
+      );
+    } finally {
+      setGpsLoading(false);
     }
-    setGpsLoading(false);
   };
 
   // ── Draggable pin ──
-  // onDragEnd receives a GeoJSON Feature; coordinates = [lng, lat]
-  const onDragEnd = (feature: any) => {
+  const onDragEnd = async (feature: any) => {
     const [lng, lat] = feature.geometry.coordinates;
     setLatitude(lat);
     setLongitude(lng);
-    setSelectedAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    const address = await reverseGeocode(lat, lng);
+    setSelectedAddress(address);
+    setShowAddressSheet(true);
   };
 
-  // ── Confirm from bottom sheet (saves location + navigates) ──
+  // ── Confirm from bottom sheet ──
   const handleConfirm = async () => {
-    if (loading || !hasLocation) return;
-
-    // Resolve final location: use GPS values (modal is visible)
-    const finalAddress = showGpsResult ? gpsAddress : selectedAddress;
-    const finalLat = showGpsResult ? gpsLat : latitude;
-    const finalLng = showGpsResult ? gpsLng : longitude;
-
-    if (!finalAddress) return;
-
-    // 1. Animate the bottom sheet out, then wait for it to finish
+    if (loading || !selectedAddress) return;
     await dismissSheet();
-
-    // 2. THEN show loading overlay and save
     setLoading(true);
     const result = await saveLocation({
-      address: finalAddress,
-      latitude: finalLat,
-      longitude: finalLng,
+      address: selectedAddress,
+      latitude,
+      longitude,
     });
-    setLoading(false);
-
     if (result.success) {
-      // Sync state and animate map
-      setSelectedAddress(finalAddress);
-      setLatitude(finalLat);
-      setLongitude(finalLng);
-      cameraRef.current?.flyTo([finalLng, finalLat], 500);
+      cameraRef.current?.flyTo([longitude, latitude], 500);
       router.push("/auth/store-photos" as any);
+      setTimeout(() => setLoading(false), 400);
+    } else {
+      setLoading(false);
     }
   };
 
@@ -205,9 +283,11 @@ export default function BusinessLocationScreen() {
     setTimeout(() => router.back(), 50);
   };
 
+  const hasAddress = selectedAddress.length > 0;
+
   return (
     <View className="flex-1 bg-gray-200">
-      {/* ══════ FULL-SCREEN MAP AS BACKGROUND (Mapbox) ══════ */}
+      {/* ══════ FULL-SCREEN MAP ══════ */}
       <Mapbox.MapView
         style={StyleSheet.absoluteFill}
         styleURL="mapbox://styles/mapbox/streets-v12"
@@ -217,15 +297,15 @@ export default function BusinessLocationScreen() {
       >
         <Mapbox.Camera
           ref={cameraRef}
-          centerCoordinate={[longitude, latitude]} // [lng, lat]
+          centerCoordinate={[longitude, latitude]}
           zoomLevel={15}
-          animationMode="flyTo"
-          animationDuration={500}
+          animationMode="moveTo"
+          animationDuration={0}
         />
         <Mapbox.PointAnnotation
           key={`pin-${latitude}-${longitude}`}
           id="business-pin"
-          coordinate={[longitude, latitude]} // [lng, lat]
+          coordinate={[longitude, latitude]}
           draggable
           onDragEnd={onDragEnd}
           title="Tu negocio"
@@ -233,20 +313,14 @@ export default function BusinessLocationScreen() {
         />
       </Mapbox.MapView>
 
-      {/* ══════ UI OVERLAY (on top of map) ══════ */}
+      {/* ══════ UI OVERLAY ══════ */}
       <View className="flex-1">
-        {/* ── Back button ── */}
         <View style={{ paddingTop: insets.top + 16 }} className="px-6">
-          <Pressable onPress={handleBack} className="h-10 w-10 justify-center">
-            <FontAwesome6 name="chevron-left" size={24} color="black" />
-          </Pressable>
+          <StepHeader current={3} total={5} onBack={handleBack} />
         </View>
-
-        {/* ── Spacer pushes bottom content down ── */}
         <View className="flex-1" />
 
-        {/* ── GPS error ── */}
-        {gpsError ? (
+        {gpsError && !isLocating ? (
           <View className="mx-6 mb-2 rounded-lg bg-white/80 px-3 py-2">
             <Text className="text-center text-sm text-gray-500">
               {gpsError}
@@ -254,90 +328,169 @@ export default function BusinessLocationScreen() {
           </View>
         ) : null}
 
-        {/* ── Address preview card ── */}
-        {selectedAddress.length > 0 ? (
-          <View
-            className="mx-6 mb-3 flex-row items-center gap-2 rounded-xl bg-white px-4 py-3"
-            style={{
-              elevation: 4,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.15,
-              shadowRadius: 3,
-            }}
-          >
-            <MaterialIcons name="check-circle" size={18} color="#22c55e" />
-            <Text className="flex-1 text-sm text-gray-700" numberOfLines={2}>
-              {selectedAddress}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* ── Main CTA: Obtener ubicación (replaces floating GPS icon) ── */}
+        {/* ── Main CTA ── */}
         <View className="px-6" style={{ paddingBottom: insets.bottom + 16 }}>
           <Pressable
-            onPress={handleUseGPS}
-            disabled={gpsLoading}
-            className="h-16 flex-row items-center justify-center gap-2 rounded-full bg-black"
+            onPress={async () => {
+              if (!hasAddress || loading || isLocating) return;
+              setLoading(true);
+              const result = await saveLocation({
+                address: selectedAddress,
+                latitude,
+                longitude,
+              });
+              if (result.success) {
+                router.push("/auth/store-photos" as any);
+                setTimeout(() => setLoading(false), 400);
+              } else {
+                setLoading(false);
+              }
+            }}
+            disabled={!hasAddress || loading || isLocating}
+            className={`h-16 flex-row items-center justify-center gap-2 rounded-full ${
+              hasAddress && !loading && !isLocating ? "bg-black" : "bg-gray-300"
+            }`}
           >
-            {gpsLoading ? null : (
-              <MaterialIcons name="my-location" size={18} color="white" />
-            )}
             <Text className="text-lg text-white">
-              {gpsLoading ? (
-                <View className="animate-spin">
-                  <Feather name="loader" size={18} color="white" />
-                </View>
-              ) : (
-                "Obtener ubicación"
-              )}
+              {isLocating ? "Obteniendo ubicación..." : "Confirmar ubicación"}
             </Text>
           </Pressable>
         </View>
       </View>
 
-      {/* ══════ GPS RESULT BOTTOM SHEET (animated + draggable) ══════ */}
-      {showGpsResult && (
-        <View className="absolute inset-0 z-40">
-          {/* Tap backdrop to dismiss */}
-          <Pressable
-            className="flex-1 bg-black/40"
-            onPress={dismissSheet}
-          />
+      {/* ══════ FAB SPEED DIAL (animated) ══════ */}
+      {!isLocating && (
+        <View className="absolute bottom-28 right-6 z-30 items-end">
+          {/* Animated options */}
+          {fabOptionsRendered && (
+            <Animated.View
+              className="mb-2 items-end gap-2"
+              style={{
+                opacity: fabAnim,
+                transform: [
+                  {
+                    scale: fabAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              }}
+            >
+              {/* Buscar */}
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      translateY: fabAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Pressable
+                  onPress={() => {
+                    setShowFabOptions(false);
+                    router.push("/auth/search-location" as any);
+                  }}
+                  className="h-11 flex-row items-center gap-2 rounded-full border border-gray-200 bg-white pl-3 pr-4"
+                >
+                  <Feather name="search" size={18} color="#6b7280" />
+                  <Text className="text-sm text-gray-700">Buscar</Text>
+                </Pressable>
+              </Animated.View>
 
-          {/* Sheet */}
-          <Animated.View
+              {/* Mi ubicación (with inline loader) */}
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      translateY: fabAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [40, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Pressable
+                  onPress={handleGetCurrentLocation}
+                  disabled={gpsLoading}
+                  className="h-11 flex-row items-center gap-2 rounded-full border border-gray-200 bg-white pl-3 pr-4"
+                >
+                  {gpsLoading ? (
+                    <ActivityIndicator size={16} color="#6b7280" />
+                  ) : (
+                    <Feather name="map-pin" size={16} color="#6b7280" />
+                  )}
+                  <Text className="text-sm text-gray-700">
+                    {gpsLoading ? "Obteniendo..." : "Mi ubicación"}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            </Animated.View>
+          )}
+
+          {/* Main FAB (+ rotates 45° → ×) */}
+          <Pressable
+            onPress={() => setShowFabOptions((prev) => !prev)}
+            className="h-12 w-12 items-center justify-center rounded-full bg-white shadow-lg"
             style={{
-              transform: [{ translateY: sheetAnimY }],
+              elevation: 6,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
             }}
+          >
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: fabRotateAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["0deg", "45deg"],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Feather name="plus" size={24} color="#6b7280" />
+            </Animated.View>
+          </Pressable>
+        </View>
+      )}
+
+      {/* ══════ BOTTOM SHEET ══════ */}
+      {showAddressSheet && (
+        <View className="absolute inset-0 z-40">
+          <Pressable className="flex-1 bg-black/40" onPress={dismissSheet} />
+          <Animated.View
+            style={{ transform: [{ translateY: sheetAnimY }] }}
             className="rounded-t-3xl bg-white px-6 pb-10 pt-2"
             {...sheetPanResponder.panHandlers}
           >
-            {/* Draggable handle bar */}
             <View className="mb-6 self-center h-1 w-12 rounded-full bg-gray-400" />
-
-            {/* Icon */}
             <View className="items-center mb-4">
               <MaterialIcons name="location-on" size={44} color="black" />
             </View>
-
             <Text className="text-3xl mb-2 text-center font-medium text-gray-900">
-              Ubicación actual
+              Ubicación del negocio
             </Text>
-            <Text className="text-base mb-4 text-center leading-5 text-gray-600">
-              {gpsAddress}
+            <Text className="text-base mb-6 text-center leading-5 text-gray-600">
+              {selectedAddress}
             </Text>
-
             <Pressable
               onPress={handleConfirm}
               disabled={loading}
               className="h-16 items-center justify-center rounded-full bg-black"
             >
               <Text className="text-lg font-medium text-white">
-                {"Confirmar ubicación"}
+                {loading ? "Guardando..." : "Confirmar ubicación"}
               </Text>
             </Pressable>
-
             <Text className="text-center flex items-center justify-center text-sm pt-4">
               <MaterialIcons name="lock" size={12} color="black" /> Esta
               información ayuda a personalizar tu sesión

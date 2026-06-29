@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -16,6 +17,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 export default function LocationPermissionsScreen() {
   const router = useRouter();
   const [showDenyModal, setShowDenyModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // ── Simple fade-in animation ──
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -29,32 +31,39 @@ export default function LocationPermissionsScreen() {
   }, [fadeAnim]);
 
   const handleContinue = async () => {
+    setLoading(true);
     const { status } = await Location.requestForegroundPermissionsAsync();
 
     if (status === "granted") {
       setTimeout(() => {
         router.push("/auth/business-location" as any);
+        setTimeout(() => setLoading(false), 400);
       }, 300);
     } else {
+      setLoading(false);
       setShowDenyModal(true);
     }
   };
 
   const handleContinueAnyway = () => {
+    setLoading(true);
     setShowDenyModal(false);
-    router.push("/auth/business-location" as any);
+    setTimeout(() => {
+      router.push("/auth/business-location" as any);
+      setTimeout(() => setLoading(false), 400);
+    }, 50);
   };
 
   return (
     <View className="flex-1">
-      <SafeAreaView className="flex-1 bg-white">
-        <KeyboardAvoidingView behavior="padding" className="flex-1">
+      <SafeAreaView className="flex-1 bg-white pt-14">
+        <KeyboardAvoidingView className="flex-1">
           <Animated.View className="flex-1" style={{ opacity: fadeAnim }}>
             {/* ── Centered content ── */}
-            <View className="flex-1 gap-6 items-center pt-28 px-6">
+            <View className="flex-1 items-center gap-6 px-6">
               {/* ── Icon ── */}
-              <View className="bg-[#ff73003f] w-24 h-24 rounded-full flex items-center justify-center">
-                <Entypo name="location" size={45} color="black" />
+              <View className="w-24 h-24 rounded-full flex items-center justify-center">
+                <Entypo name="location" size={50} color="black" />
               </View>
 
               {/* ── Title ── */}
@@ -83,7 +92,7 @@ export default function LocationPermissionsScreen() {
                 className={`h-16 items-center justify-center rounded-full ${showDenyModal ? " bg-gray-100" : "bg-black"}`}
               >
                 <Text
-                  className={`text-lg font-semibold ${showDenyModal ? "text-gray-400" : "text-white"}`}
+                  className={`text-lg ${showDenyModal ? "text-gray-400" : "text-white"}`}
                 >
                   Permitir Acceso
                 </Text>
@@ -124,6 +133,19 @@ export default function LocationPermissionsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Loading overlay ── */}
+      {loading && (
+        <View className="absolute inset-0 z-50">
+          <View className="flex-1 items-center justify-center bg-white">
+            <Image
+              source={require("../../assets/images/logo.png")}
+              className="h-40 w-40"
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }

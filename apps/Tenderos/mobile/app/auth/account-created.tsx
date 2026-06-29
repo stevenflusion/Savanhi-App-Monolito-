@@ -105,11 +105,11 @@ export default function AccountCreatedScreen() {
             </View>
             <View className="flex gap-1 pb-4">
               <Text className="flex  text-gray-900 justify-center text-lg ">
-                Brinda una buena atención.
+                Mantén tu catálogo al día.
               </Text>
               <Text className="flex text-gray-400 justify-center text-base -pt-4">
-                Responde los pedidos y consultas lo antes posible para ofrecer
-                una mejor experiencia a tus clientes.
+                Actualiza los productos, precios y disponibilidad para evitar
+                inconvenientes con los pedidos.
               </Text>
             </View>
           </View>

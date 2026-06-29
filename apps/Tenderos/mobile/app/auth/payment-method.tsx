@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import StepHeader from "@/src/components/auth/StepHeader";
 
 type PaymentMethod = "efectivo" | "pichincha";
 
@@ -42,11 +42,6 @@ export default function PaymentMethodScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const handleBack = () => {
-    Keyboard.dismiss();
-    setTimeout(() => router.back(), 50);
-  };
-
   const handleSubmit = async () => {
     if (!valid || loading) return;
     Keyboard.dismiss();
@@ -74,13 +69,7 @@ export default function PaymentMethodScreen() {
       >
         {/* ── Content area (flex-1 pushes CTA to the bottom) ── */}
         <View className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
-          {/* ── Back Arrow ── */}
-          <Pressable
-            onPress={handleBack}
-            className="mb-10 h-10 w-10 justify-center"
-          >
-            <FontAwesome6 name="chevron-left" size={24} color="black" />
-          </Pressable>
+          <StepHeader current={5} total={5} />
 
           {/* ── Title ── */}
           <Text className="text-4xl pb-5 font-medium text-gray-900">
@@ -93,7 +82,7 @@ export default function PaymentMethodScreen() {
             Podrás cambiarlo más adelante desde tu perfil.
           </Text>
 
-          {/* ── Checklist options ── */}
+          {/* ── Radio options ── */}
           <View className="mt-8">
             {OPTIONS.map(({ label, value }) => {
               const selected = method === value;
@@ -106,21 +95,14 @@ export default function PaymentMethodScreen() {
                   }}
                   className="flex-row items-center py-4 pl-9"
                 >
-                  {/* Checkbox square */}
+                  {/* Radio circle */}
                   <View
-                    className={`absolute left-2 h-6 w-6 items-center justify-center rounded border-2 ${
-                      selected
-                        ? "border-black bg-black"
-                        : "border-gray-300 bg-white"
+                    className={`absolute left-2 h-6 w-6 items-center justify-center rounded-full border-2 ${
+                      selected ? "border-black" : "border-gray-300"
                     }`}
                   >
                     {selected && (
-                      <MaterialIcons
-                        className="-mt-1 -ml-[1.5px] "
-                        name="check"
-                        size={20}
-                        color="white"
-                      />
+                      <View className="h-3 w-3 rounded-full bg-black" />
                     )}
                   </View>
 

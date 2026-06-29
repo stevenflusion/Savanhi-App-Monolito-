@@ -18,8 +18,8 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/src/components/AuthProvider";
 import * as ImagePicker from "expo-image-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import StepHeader from "@/src/components/auth/StepHeader";
 
 const MAX_SLOTS = 3;
 
@@ -56,9 +56,19 @@ export default function StorePhotosScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const handleBack = () => {
+  const handleSkip = async () => {
+    if (loading) return;
     Keyboard.dismiss();
-    setTimeout(() => router.back(), 50);
+    setLoading(true);
+    setError("");
+    const result = await savePhotos([]);
+    if (result.success) {
+      router.push("/auth/payment-method" as any);
+      setTimeout(() => setLoading(false), 400);
+    } else {
+      setLoading(false);
+      setError(result.error ?? "Error al guardar");
+    }
   };
 
   const pickImage = (slotIndex: number) => {
@@ -119,7 +129,7 @@ export default function StorePhotosScreen() {
     const uris = photos.filter((p): p is string => p !== null);
     const result = await savePhotos(uris);
     if (result.success) {
-      router.push("/auth/identity-card" as any);
+      router.push("/auth/payment-method" as any);
       setTimeout(() => setLoading(false), 400);
     } else {
       setLoading(false);
@@ -137,13 +147,7 @@ export default function StorePhotosScreen() {
         }}
       >
         <View className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
-          {/* ── Back Arrow ── */}
-          <Pressable
-            onPress={handleBack}
-            className="mb-10 h-10 w-10 justify-center"
-          >
-            <FontAwesome6 name="chevron-left" size={24} color="black" />
-          </Pressable>
+          <StepHeader current={4} total={5} />
 
           {/* ── Title ── */}
           <Text className="text-4xl pb-6 font-medium text-gray-900">
@@ -195,23 +199,19 @@ export default function StorePhotosScreen() {
             ))}
           </View>
         </View>
-        <View className="px-6">
+
+        <View className="px-6 pb-6">
           <Pressable
-            onPress={handleSubmit}
-            disabled={!valid || loading}
-            className={`h-16 items-center justify-center rounded-full ${
-              valid && !loading ? "bg-black" : "bg-gray-100"
-            }`}
+            onPress={valid ? handleSubmit : handleSkip}
+            disabled={loading}
+            className="h-16 items-center justify-center rounded-full bg-black"
           >
-            <Text
-              className={`text-lg ${
-                valid && !loading ? "text-white" : "text-gray-400"
-              }`}
-            >
-              Siguiente
+            <Text className="text-lg text-white">
+              {valid ? "Siguiente" : "Omitir por ahora"}
             </Text>
           </Pressable>
-          <Text className="text-center flex items-center justify-center text-sm pt-4 pb-6">
+
+          <Text className="text-center flex items-center justify-center text-sm pt-4">
             <MaterialCommunityIcons
               name="folder-alert"
               size={12}

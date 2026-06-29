@@ -2,7 +2,7 @@ require("dotenv").config();
 
 module.exports = {
   expo: {
-    name: "Tenderos Mobile",
+    name: "Savanhi Tenderos",
     slug: "tenderos-mobile",
     version: "1.0.0",
     extra: {
@@ -30,11 +30,17 @@ module.exports = {
     experiments: {
       typedRoutes: true,
     },
+    icon: "./assets/images/logo.png",
     android: {
       package: "com.anonymous.tenderosmobile",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/logo.png",
+        backgroundColor: "#ffffff",
+      },
     },
     ios: {
       bundleIdentifier: "com.anonymous.tenderosmobile",
+      icon: "./assets/images/logo.png",
     },
   },
 };
